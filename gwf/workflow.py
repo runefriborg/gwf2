@@ -393,19 +393,18 @@ class Target(ExecutableTask):
 
         self.make_script_dir()
         
-        f = open(self.script_name, 'w')
-        
-        # Put PBS options at the top
-        for options in self.pbs_options:
-            print >> f, '#PBS', options
-        print >> f
-        
-        print >> f, '# GWF generated code ...'
-        print >> f, 'cd %s' % self.working_dir
-        print >> f
+        with open(self.script_name, 'w') as f:
+            # Put PBS options at the top
+            for options in self.pbs_options:
+                print >> f, '#PBS', options
+            print >> f
+            
+            print >> f, '# GWF generated code ...'
+            print >> f, 'cd %s' % self.working_dir
+            print >> f
 
-        print >> f, '# Script from workflow'
-        print >> f, self.code
+            print >> f, '# Script from workflow'
+            print >> f, self.code
 
     @property
     def graphviz_shape(self):
