@@ -552,7 +552,7 @@ class Workflow:
             dependent_tasks = set(node.name
                                   for _,node in job.dependencies
                                   if node.name in scheduled_tasks)
-            if len(dependent_tasks) > 0:
+            if dependent_tasks:
                 depend = '-W depend=afterok:$%s' % \
                     ':$'.join(dependent_tasks)
             else:
