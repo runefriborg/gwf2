@@ -625,7 +625,7 @@ class Workflow:
         command = ' '.join([
             '%s=`' % 'SOMEUNIQUEJOBNAME',
             'qsub -N %s' % 'SOMEUNIQUEJOBNAME',
-            'Master',
+            os.path.join(job.task.script_dir, 'Master'),
             '`'])
         script_commands.append(command)
 
