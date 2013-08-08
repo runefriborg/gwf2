@@ -440,6 +440,8 @@ class Target(ExecutableTask):
         print >> f, '# Script from workflow'
         print >> f, self.code
 
+        os.chmod(self.script_name, 0766)
+
     @property
     def job_in_queue(self):
         if not _file_exists(self.job_name):
@@ -620,6 +622,8 @@ class Workflow:
                 # write call to task script to Master file.
                 with open(os.path.join(job.task.script_dir, 'Master'), 'a') as master:
                     print >> master, job.task.script_name
+
+        os.chmod(os.path.join(job.task.script_dir, 'Master'), 0766)
 
         command = ' '.join([
             '%s=`' % 'SOMEUNIQUEJOBNAME',
