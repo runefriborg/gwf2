@@ -619,8 +619,7 @@ class Workflow:
 
                 # write call to task script to Master file.
                 with open(os.path.join(job.task.script_dir, 'Master'), 'a') as master:
-                    command = ' '.join(['.' + job.task.script_name])
-                    print >> master, command
+                    print >> master, job.task.script_name
 
         command = ' '.join([
             '%s=`' % 'SOMEUNIQUEJOBNAME',
