@@ -605,6 +605,7 @@ class Workflow:
             # If the job is already in the queue, just get the ID
             # into the shell command used later for dependencies...
             if job.task.job_in_queue:
+                # BUG (@das): This is broken now since we run all tasks as a single job.
                 command = ' '.join([
                     '%s=`' % job.name,
                     'cat', job.task.job_name,
@@ -616,25 +617,17 @@ class Workflow:
                 # execute!
                 job.task.write_script()
 
-                dependent_tasks = set(node.name
-                                      for _,node in job.dependencies
-                                      if node.name in scheduled_tasks)
-                if dependent_tasks > 0:
-                    depend = '-W depend=afterok:$%s' % \
-                        ':$'.join(dependent_tasks)
-                else:
-                    depend = ''
+                # write call to task script to Master file.
+                with open(os.path.join(job.task.script_dir, 'Master'), 'a') as master:
+                    command = ' '.join(['.' + job.task.script_name])
+                    print >> master, command
 
-                script = job.task.script_name
-                command = ' '.join([
-                    '%s=`' % job.name,
-                    'qsub -N %s' % job.name,
-                    depend,
-                    script,
-                    '`'])
-                script_commands.append(command)
-                script_commands.append(' '.join([
-                    'echo', ('$%s'%job.name), '>', job.task.job_name]))
+        command = ' '.join([
+            '%s=`' % 'SOMEUNIQUEJOBNAME',
+            'qsub -N %s' % 'SOMEUNIQUEJOBNAME',
+            'Master',
+            '`'])
+        script_commands.append(command)
 
         return '\n'.join(script_commands)
 
