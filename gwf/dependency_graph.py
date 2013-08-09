@@ -12,7 +12,7 @@ class Node:
         # The node needs to be run if what it contains needs to be run
         # or any of the upstream nodes need to be run...
         self.should_run = self.task.should_run or \
-                any(dep.should_run for _,dep in dependencies)
+                any(dep.should_run for _, dep in dependencies)
         
 
 class DependencyGraph:
@@ -96,7 +96,7 @@ class DependencyGraph:
                 return node.name in scheduled
 
             # schedule all dependencies before we schedule this task
-            for _,dep in node.dependencies:
+            for _, dep in node.dependencies:
                 dfs(dep)
             
             # If this task needs to run, then schedule it
