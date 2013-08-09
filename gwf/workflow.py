@@ -562,7 +562,7 @@ class Workflow:
         
         # build the dependency graph    
         self.dependency_graph = DependencyGraph(self)
-        
+
     def run_workflow(self, target_name):
         '''Running the given workflow
 
@@ -575,7 +575,7 @@ class Workflow:
         schedule, scheduled_tasks = self.dependency_graph.schedule(target.name)
 
         # Request X number of nodes.
-        os.system('qsub -I -l nodes={0}'.format(4))
+        subprocess.call('qsub -I -l nodes={0}'.format(4))
 
         # Figure out how many cores each allocated node has available. We need
         # this when scheduling jobs.
