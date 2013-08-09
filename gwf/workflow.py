@@ -562,7 +562,42 @@ class Workflow:
         
         # build the dependency graph    
         self.dependency_graph = DependencyGraph(self)
+        
+    def run_workflow(self, target_name):
+        '''Running the given workflow
 
+        Running a workflow consists of scheduling the tasks such that
+        all dependencies are fulfilled. To minimize IO to remote storage,
+        we allocate machines dynamically and copy files directly between
+        machines.
+        '''
+        target = self.targets[target_name]
+        schedule, scheduled_tasks = self.dependency_graph.schedule(target.name)
+
+        # Request X number of nodes.
+        os.system('qsub -I -l nodes={0}'.format(4))
+
+        # Figure out how many cores each allocated node has available. We need
+        # this when scheduling jobs.
+        nodes = {}
+        with open(os.environ['PBS_NODEFILE']) as node_file:
+            for node in node_file:
+                if not node in nodes:
+                    nodes[node] = 0
+                nodes[node] += 1
+
+        print nodes
+
+        # for job in schedule:
+        #     # skip dummy tasks that we shouldn't submit...
+        #     if job.task.dummy:
+        #         continue
+        
+        #     if not job.task.can_execute:
+        #         print job.task.execution_error
+        #         import sys ; sys.exit(2)
+
+            
 
     def get_submission_script(self, target_name):
         '''Generate the script used to submit the tasks.'''
@@ -570,46 +605,46 @@ class Workflow:
         target = self.targets[target_name]
         schedule, scheduled_tasks = self.dependency_graph.schedule(target.name)
         
-        script_commands = []
-        for job in schedule:
+        # script_commands = []
+        # for job in schedule:
         
-            # skip dummy tasks that we shouldn't submit...
-            if job.task.dummy:
-                continue
+        #     # skip dummy tasks that we shouldn't submit...
+        #     if job.task.dummy:
+        #         continue
         
-            if not job.task.can_execute:
-                print job.task.execution_error
-                import sys ; sys.exit(2)
+        #     if not job.task.can_execute:
+        #         print job.task.execution_error
+        #         import sys ; sys.exit(2)
 
-            # If the job is already in the queue, just get the ID
-            # into the shell command used later for dependencies...
-            if job.task.job_in_queue:
-                # BUG (@das): This is broken now since we run all tasks as a single job.
-                command = ' '.join([
-                    '%s=`' % job.name,
-                    'cat', job.task.job_name,
-                    '`'])
-                script_commands.append(command)
+        #     # If the job is already in the queue, just get the ID
+        #     # into the shell command used later for dependencies...
+        #     if job.task.job_in_queue:
+        #         # BUG (@das): This is broken now since we run all tasks as a single job.
+        #         command = ' '.join([
+        #             '%s=`' % job.name,
+        #             'cat', job.task.job_name,
+        #             '`'])
+        #         script_commands.append(command)
                 
-            else:
-                # make sure we have the scripts for the jobs we want to
-                # execute!
-                job.task.write_script()
+        #     else:
+        #         # make sure we have the scripts for the jobs we want to
+        #         # execute!
+        #         job.task.write_script()
 
-                # write call to task script to Master file.
-                with open(os.path.join(job.task.script_dir, 'Master'), 'a') as master:
-                    print >> master, job.task.script_name
+        #         # write call to task script to Master file.
+        #         with open(os.path.join(job.task.script_dir, 'Master'), 'a') as master:
+        #             print >> master, job.task.script_name
 
-        os.chmod(os.path.join(job.task.script_dir, 'Master'), 0766)
+        # os.chmod(os.path.join(job.task.script_dir, 'Master'), 0766)
 
-        command = ' '.join([
-            '%s=`' % 'SOMEUNIQUEJOBNAME',
-            'qsub -N %s' % 'SOMEUNIQUEJOBNAME',
-            os.path.join(job.task.script_dir, 'Master'),
-            '`'])
-        script_commands.append(command)
+        # command = ' '.join([
+        #     '%s=`' % 'SOMEUNIQUEJOBNAME',
+        #     'qsub -N %s' % 'SOMEUNIQUEJOBNAME',
+        #     os.path.join(job.task.script_dir, 'Master'),
+        #     '`'])
+        # script_commands.append(command)
 
-        return '\n'.join(script_commands)
+        # return '\n'.join(script_commands)
 
 
     def get_local_execution_script(self, target_name):

@@ -46,7 +46,7 @@ if args.local:
         print 'Done'    
 
 else:
-    script = workflow.get_submission_script(target)
+    script = workflow.run_workflow(target)
     if args.dry_run:
         print 'When run, the following script will be executed:'
         print
