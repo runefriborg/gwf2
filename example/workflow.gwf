@@ -4,7 +4,8 @@ This is an example workflow for read mapping using bwa and samtools.
 :input ponAbe2.fa.gz
 :output ponabe2-bwaidx.amb ponabe2-bwaidx.ann ponabe2-bwaidx.pac
 
-bwa index -p ponabe2-bwaidx -a bwtsw ponAbe2.fa.gz
+source /com/extra/bwa/0.7.5a/load.sh; \
+    bwa index -p ponabe2-bwaidx -a bwtsw ponAbe2.fa.gz
 
 
 @target MapReads
@@ -14,6 +15,8 @@ bwa index -p ponabe2-bwaidx -a bwtsw ponAbe2.fa.gz
 :pbs -l nodes=1:ppn=16
 :pbs -l walltime=1:0:0
 
+source /com/extra/bwa/0.7.5a/load.sh; \
+source /com/extra/samtools/0.1.19/load.sh; \
 bwa mem -t 16 ponabe2-bwaidx Masala_R1.fastq.gz Masala_R2.fastq.gz | \
     samtools view -Shb - > Masala.unsorted.bam
 
@@ -23,5 +26,6 @@ bwa mem -t 16 ponabe2-bwaidx Masala_R1.fastq.gz Masala_R2.fastq.gz | \
 :output Masala.sorted.rmdup.bam
 :pbs -l walltime=1:0:0
 
+source /com/extra/samtools/0.1.19/load.sh; \
 samtools sort -o Masala.unsorted.bam /scratch/$PBS_JOBID/Masala | \
 	 samtools rmdup -s - Masala.sorted.rmdup.bam
