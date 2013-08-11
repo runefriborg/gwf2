@@ -37,6 +37,8 @@ def _make_absolute_path(working_dir, fname):
         abspath = os.path.join(working_dir, fname)
     return os.path.normpath(abspath)
 
+PBS_JOB_ID = os.environ['PBS_JOBID']
+
 ## TEMPLATES 
 class Template:
     def __init__(self, name, wd, parameters, template):
@@ -394,8 +396,9 @@ class Target(ExecutableTask):
         escaped_name = _escape_file_name(self.name)
         return _make_absolute_path(self.jobs_dir, escaped_name)
 
-    def local_wd(self, pbs_job_id):
-        return '/scratch/{0}/{1}'.format(pbs_job_id, self.name)
+    @property
+    def local_wd(self):
+        return '/scratch/{0}/{1}'.format(PBS_JOB_ID, self.name)
 
     @property
     def cores(self):
@@ -422,10 +425,8 @@ class Workflow:
         self.template_targets = template_targets
         self.working_dir = wd
 
-        self.pbs_job_id = os.environ['PBS_JOBID']
-
         self.pool = JobScheduler(started_handler=self.job_started,
-                            stopped_handler=self.job_finished)
+                                 stopped_handler=self.job_finished)
         self.pool.start()
 
         # handle list transformation...
@@ -531,7 +532,7 @@ class Workflow:
 
     def move_input_files(self, job):
         for in_file in job.task.input:
-            local_wd = job.task.local_wd(self.pbs_job_id)
+            local_wd = job.task.local_wd
             relative_path = os.path.relpath(in_file, job.task.wd)
             try:
                 os.makedirs(os.path.join(local_wd, os.path.dirname(relative_path)))
@@ -543,7 +544,7 @@ class Workflow:
     def move_output_files(self, job):
         for out_file in job.task.output:
             relative_path = os.path.relpath(out_file, job.task.wd)
-            absolute_path = os.path.join(job.task.local_wd(self.pbs_job_id), relative_path)
+            absolute_path = os.path.join(job.task.local_wd, relative_path)
             log.debug('copying out file from %s to %s', absolute_path, out_file)
             shutil.copyfile(absolute_path, out_file)
 
@@ -581,7 +582,7 @@ class Workflow:
                     if not all(dep_job.done for resource, dep_job in job.task.dependencies if dep_job.can_execute):
                         continue
 
-                    local_wd = job.task.local_wd(self.pbs_job_id)
+                    local_wd = job.task.local_wd
                     try:
                         os.mkdir(local_wd)
                     except OSError as e:
