@@ -425,9 +425,9 @@ class Workflow:
         self.template_targets = template_targets
         self.working_dir = wd
 
-        self.pool = JobScheduler(started_handler=self.job_started,
-                                 stopped_handler=self.job_finished)
-        self.pool.start()
+        self.scheduler = JobScheduler()
+        self.scheduler.on('started', self.job_started)
+        self.scheduler.on('done', self.job_finished)
 
         # handle list transformation...
         for cmd in self.lists.values():
@@ -592,10 +592,10 @@ class Workflow:
                     self.move_input_files(job)
 
                     # schedule the job
-                    self.pool.schedule(job,
-                                       job.task.code.strip(),
-                                       stderr=subprocess.STDOUT,
-                                       cwd=local_wd)
+                    self.scheduler.schedule(job,
+                                            job.task.code.strip(),
+                                            stderr=subprocess.STDOUT,
+                                            cwd=local_wd)
 
                 log.debug('scheduling done, jobs left: %s', 
                           ', '.join(job.task.name for job in schedule if not job.task.done and not job.task.running))
@@ -603,7 +603,7 @@ class Workflow:
         except:
             raise
         finally:
-            self.pool.stop()
+            self.scheduler.stop()
 
     def get_available_node(self, cores_needed):
         for node, cores in self.nodes.iteritems():
@@ -611,27 +611,47 @@ class Workflow:
                 return node
 
 class JobScheduler(threading.Thread):
-    def __init__(self, started_handler, stopped_handler):
+    EVENT_NAMES = ['before', 'started', 'done']
+
+    def __init__(self):
         threading.Thread.__init__(self)
 
         self.processes = {}
         self.stopped = False
 
-        self.started_handler = started_handler
-        self.stopped_handler = stopped_handler
+        self.listeners = dict((event_name, []) for event_name in JobScheduler.EVENT_NAMES)
+
+        self.start()
+
+    def _notify_before(self, name):
+        for listener in self.listeners['before']:
+            listener(name)
+
+    def _notify_started(self, name):
+        for listener in self.listeners['started']:
+            listener(name)
+
+    def _notify_done(self, name):
+        for listener in self.listeners['done']:
+            listener(name)
 
     def schedule(self, name, command, **kwargs):
+        self._notify_before(name)
         self.processes[name] = subprocess.Popen(command, shell=True, **kwargs)
-        self.started_handler(name)
+        self._notify_started(name)
 
     def run(self):
         while not self.stopped:
             for name, process in self.processes.items():
                 if process.poll() is not None:
-                    self.stopped_handler(name)
+                    self._notify_done(name)
                     del self.processes[name]
             time.sleep(0.1)
 
     def stop(self):
         self.stopped = True
 
+    def on(self, event_name, event_handler):
+        if event_name not in JobScheduler.EVENT_NAMES:
+            raise Exception('invalid event name: {0}'.format(event_name))
+        self.listeners[event_name].append(event_handler)
