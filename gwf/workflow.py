@@ -531,14 +531,14 @@ class Workflow:
 
     def move_input_files(self, job):
         for in_file in job.task.input:
-            # must figure out relative path to file
+            local_wd = job.task.local_wd(self.pbs_job_id)
             relative_path = os.path.relpath(in_file, job.task.wd)
             try:
-                os.makedirs(os.path.join(job.task.local_wd(self.pbs_job_id), os.path.dirname(relative_path)))
+                os.makedirs(os.path.join(local_wd, os.path.dirname(relative_path)))
             except OSError as exc:
                 pass
-            log.debug("copying %s to %s", in_file, os.path.join(job.task.local_wd(self.pbs_job_id), relative_path))
-            shutil.copyfile(in_file, os.path.join(job.task.local_wd(self.pbs_job_id), relative_path))
+            log.debug("copying %s to %s", in_file, os.path.join(local_wd, relative_path))
+            shutil.copyfile(in_file, os.path.join(local_wd, relative_path))
 
     def move_output_files(self, job):
         for out_file in job.task.output:
