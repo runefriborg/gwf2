@@ -571,7 +571,6 @@ class Workflow:
 
         try:
             while not all(job.task.done for job in schedule):
-                print {job.task.name: job.task.done for job in schedule}
                 for job in schedule:
                     # skip dummy tasks that we shouldn't submit...
                     if job.task.done or job.task.running or job.task.dummy or not job.task.can_execute:
