@@ -6,9 +6,15 @@ import time
 import re
 import string
 import subprocess
+import threading
+import shutil
+import logging as log
 from exceptions import NotImplementedError
+
 from dependency_graph import DependencyGraph
 import parser # need this to re-parse instantiated templates
+
+log.basicConfig(level=log.DEBUG)
 
 def _escape_file_name(fname):
     valid_chars = "-_.() %s%s" % (string.ascii_letters, string.digits)
@@ -297,20 +303,16 @@ class Target(ExecutableTask):
         self.pbs_options = pbs_options
         self.flags = flags
         self.code = code
-        self.process = None
+        self.wd = wd
+
+        self.done = False
+        self.running = False
         
         if 'dummy' in self.flags and len(self.output) > 0:
             print 'Target %s is marked as a dummy target but has output files.'
             print 'Dummy targets will never be run so cannot produce output!'
             sys.exit(2)
         self.is_dummy = 'dummy' in self.flags
-    
-    def run(self):
-        job_id = os.environ['PBS_JOBID']
-        cwd = '/scratch/{0}/{1}'.format(job_id, self.name)
-        os.mkdir(cwd)
-        
-        self.process = subprocess.Popen(self.code, shell=True, cwd=cwd)
 
     @property
     def should_run(self):
@@ -392,18 +394,12 @@ class Target(ExecutableTask):
         escaped_name = _escape_file_name(self.name)
         return _make_absolute_path(self.jobs_dir, escaped_name)
 
-    @property
-    def job_id(self):
-        return self.job_id
+    def local_wd(self, pbs_job_id):
+        return '/scratch/{0}/{1}'.format(pbs_job_id, self.name)
 
     @property
     def cores(self):
         return 16
-
-    @property
-    def done(self):
-        # poll() returns None as long as the process is running...
-        return self.process and not self.process.poll() is None
 
     def __str__(self):
         return '@target %s, input(%s) -> output(%s)' % (
@@ -425,6 +421,12 @@ class Workflow:
         self.targets = targets
         self.template_targets = template_targets
         self.working_dir = wd
+
+        self.pbs_job_id = os.environ['PBS_JOBID']
+
+        self.pool = JobPool(started_handler=self.job_started,
+                            stopped_handler=self.job_finished)
+        self.pool.start()
 
         # handle list transformation...
         for cmd in self.lists.values():
@@ -527,6 +529,35 @@ class Workflow:
                     self.nodes[node_name] = 0
                 self.nodes[node_name] += 1
 
+    def move_input_files(self, job):
+        for in_file in job.task.input:
+            # must figure out relative path to file
+            relative_path = os.path.relpath(in_file, job.task.wd)
+            try:
+                os.makedirs(os.path.join(job.task.local_wd(self.pbs_job_id), os.path.dirname(relative_path)))
+            except OSError as exc:
+                pass
+            log.debug("copying %s to %s", in_file, os.path.join(job.task.local_wd(self.pbs_job_id), relative_path))
+            shutil.copyfile(in_file, os.path.join(job.task.local_wd(self.pbs_job_id), relative_path))
+
+    def move_output_files(self, job):
+        for out_file in job.task.output:
+            relative_path = os.path.relpath(out_file, job.task.wd)
+            absolute_path = os.path.join(job.task.local_wd(self.pbs_job_id), relative_path)
+            log.debug('copying out file from %s to %s', absolute_path, out_file)
+            shutil.copyfile(absolute_path, out_file)
+
+    def job_finished(self, job):
+        log.info('finished job: %s', job)
+        self.move_output_files(job)
+        job.task.done = True
+        job.task.running = False
+
+    def job_started(self, job):
+        log.info('running job: %s', job)
+        job.task.done = False
+        job.task.running = True
+
     def run_workflow(self, target_name):
         '''Running the given workflow
 
@@ -538,48 +569,69 @@ class Workflow:
         target = self.targets[target_name]
         schedule, scheduled_tasks = self.dependency_graph.schedule(target.name)
 
-        while not all(job.task.done for job in schedule):
-            for job in schedule:
-                # skip dummy tasks that we shouldn't submit...
-                if job.task.dummy or not job.task.can_execute:
-                    continue
+        try:
+            while not all(job.task.done for job in schedule):
+                print {job.task.name: job.task.done for job in schedule}
+                for job in schedule:
+                    # skip dummy tasks that we shouldn't submit...
+                    if job.task.done or job.task.running or job.task.dummy or not job.task.can_execute:
+                        continue
 
-                # if all dependencies are done, we may schedule this job. This
-                # also handles the case of no dependencies since all([]) == True.
-                if all(dep_job.done for resource, dep_job in job.task.dependencies if dep_job.can_execute):
-                    #node = self.get_available_node(job.task.cores)
+                    # if all dependencies are done, we may schedule this job. This
+                    # also handles the case of no dependencies since all([]) == True.
+                    if not all(dep_job.done for resource, dep_job in job.task.dependencies if dep_job.can_execute):
+                        continue
+
+                    local_wd = job.task.local_wd(self.pbs_job_id)
+                    try:
+                        os.mkdir(local_wd)
+                    except OSError as e:
+                        log.warning("local working dir already exists at %s", local_wd)
+
+                    # move all input files to local working directory
+                    self.move_input_files(job)
 
                     # schedule the job
-                    job.task.run()
+                    self.pool.schedule(job,
+                                       job.task.code.strip(),
+                                       stderr=subprocess.STDOUT,
+                                       cwd=local_wd)
+
+                log.debug('scheduling done, jobs left: %s', 
+                          ', '.join(job.task.name for job in schedule if not job.task.done and not job.task.running))
+                time.sleep(0.5)
+        except:
+            raise
+        finally:
+            self.pool.stop()
 
     def get_available_node(self, cores_needed):
         for node, cores in self.nodes.iteritems():
             if cores >= cores_needed:
                 return node
 
-    def get_local_execution_script(self, target_name):
-        '''Generate the script needed to execute a target locally.'''
-    	
-        target = self.targets[target_name]
-        schedule, scheduled_tasks = self.dependency_graph.schedule(target.name)
-        
-        script_commands = []
-        for job in schedule:
-        
-            # skip dummy tasks that we shouldn't submit...
-            if job.task.dummy:
-                continue
+class JobPool(threading.Thread):
+    def __init__(self, started_handler, stopped_handler):
+        threading.Thread.__init__(self)
 
-            if not job.task.can_execute:
-                print job.task.execution_error
-                import sys ; sys.exit(2)
-        
-            # make sure we have the scripts for the jobs we want to
-            # execute!
-            job.task.write_script()
+        self.processes = {}
+        self.stopped = False
 
-            script = open(job.task.script_name, 'r').read()
-            script_commands.append('# computing %s' % job.name)
-            script_commands.append(script)
+        self.started_handler = started_handler
+        self.stopped_handler = stopped_handler
 
-        return '\n'.join(script_commands)
+    def schedule(self, name, command, **kwargs):
+        self.processes[name] = subprocess.Popen(command, shell=True, **kwargs)
+        self.started_handler(name)
+
+    def run(self):
+        while not self.stopped:
+            for name, process in self.processes.items():
+                if process.poll() is not None:
+                    self.stopped_handler(name)
+                    del self.processes[name]
+            time.sleep(0.1)
+
+    def stop(self):
+        self.stopped = True
+
