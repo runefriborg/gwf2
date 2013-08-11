@@ -424,7 +424,7 @@ class Workflow:
 
         self.pbs_job_id = os.environ['PBS_JOBID']
 
-        self.pool = JobPool(started_handler=self.job_started,
+        self.pool = JobScheduler(started_handler=self.job_started,
                             stopped_handler=self.job_finished)
         self.pool.start()
 
@@ -610,7 +610,7 @@ class Workflow:
             if cores >= cores_needed:
                 return node
 
-class JobPool(threading.Thread):
+class JobScheduler(threading.Thread):
     def __init__(self, started_handler, stopped_handler):
         threading.Thread.__init__(self)
 
