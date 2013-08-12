@@ -584,9 +584,7 @@ class Workflow(object):
         # Now, schedule everything that can be scheduled...
         # NOTE: The copy is IMPORTANT since we modify missing
         #       during scheduling.
-        for task in copy(self.missing):
-            self.schedule_task(task)
-
+        self.schedule_tasks()
         self.scheduler.run()
 
     def move_input(self, task):
@@ -617,31 +615,41 @@ class Workflow(object):
 
     def on_job_done(self, task, errorcode):
         if errorcode > 0:
-            logging.error('task %s finished with non-zero error code %s - halting', task.name, errorcode)
+            logging.error('task %s stopped with non-zero error code %s - halting', task.name, errorcode)
             self.scheduler.stop()
 
-        logging.info('finished task: %s', task.name)
+        logging.info('task done: %s', task.name)
         self.move_output(task)
         self.running.remove(task)
 
-        try:
-            for task in self.missing:
-                self.schedule_task(task)
-        finally:
-            self.scheduler.stop()
+        self.schedule_tasks()
 
     def on_job_started(self, task):
         self.running.append(task)
 
+    def schedule_tasks(self):
+        try:
+            for task in copy(self.missing):
+                self.schedule_task(task)
+        finally:
+            self.scheduler.stop()
+
     def schedule_task(self, task):
+        logging.debug('scheduling task=%s', task.name)
+
         # skip dummy tasks that we shouldn't submit...
         if task.dummy or not task.can_execute:
             return
 
         # if all dependencies are done, we may schedule this task.
-        for resource, dep_job in task.dependencies:
-            if dep_job.can_execute and (dep_job in self.missing or dep_job in self.running):
-                return
+        for _, dep_task in task.dependencies:
+            if dep_task.can_execute:
+                if dep_task in self.missing:
+                    logging.debug('task not scheduled - dependency %s missing', dep_task.name)
+                    return
+                if dep_task in self.running:
+                    logging.debug('task not scheduled - dependency %s running', dep_task.name)
+                    return
 
         # schedule the task
         logging.debug("running task=%s cwd=%s code='%s'", task.name, task.local_wd, task.code.strip())
