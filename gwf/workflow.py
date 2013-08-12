@@ -573,7 +573,7 @@ class Workflow(object):
         self.missing = [job.task for job in self.schedule]
 
         # This list contains all the running jobs.
-        self.running = list()
+        self.running = []
         
         # ... then start the scheduler to actually run the jobs.
         self.scheduler = TaskScheduler()
