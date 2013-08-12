@@ -11,7 +11,7 @@ import logging
 from copy import copy
 from exceptions import NotImplementedError
 
-from scheduler import JobScheduler
+from scheduler import TaskScheduler
 from dependency_graph import DependencyGraph
 
 import parser # need this to re-parse instantiated templates
@@ -576,7 +576,7 @@ class Workflow(object):
         self.running = list()
         
         # ... then start the scheduler to actually run the jobs.
-        self.scheduler = JobScheduler()
+        self.scheduler = TaskScheduler()
         self.scheduler.on('before', self.on_before_job_started)
         self.scheduler.on('started', self.on_job_started)
         self.scheduler.on('done', self.on_job_done)
@@ -654,47 +654,3 @@ class Workflow(object):
         for node, cores in self.nodes.iteritems():
             if cores >= cores_needed:
                 return node
-
-class JobScheduler(object):
-    EVENT_NAMES = ['before', 'started', 'done']
-
-    def __init__(self):
-        self.processes = {}
-        self.stopped = False
-        self.listeners = { event_name: [] for event_name in JobScheduler.EVENT_NAMES }
-
-    def _notify_before(self, name):
-        for listener in self.listeners['before']:
-            listener(name)
-
-    def _notify_started(self, name):
-        for listener in self.listeners['started']:
-            listener(name)
-
-    def _notify_done(self, name, errorcode):
-        for listener in self.listeners['done']:
-            listener(name, errorcode)
-
-    def schedule(self, name, command, **kwargs):
-        self._notify_before(name)
-        self.processes[name] = subprocess.Popen(command, shell=True, bufsize=1, **kwargs)
-        self._notify_started(name)
-
-    def run(self):
-        while not self.stopped:
-            for name, process in self.processes.items():
-                if process.poll() is not None:
-                    self._notify_done(name, process.returncode)
-                    del self.processes[name]
-            time.sleep(0.1)
-
-    def stop(self):
-        self.stopped = True
-
-    def running(self, job):
-        return job in self.processes
-
-    def on(self, event_name, event_handler):
-        if event_name not in JobScheduler.EVENT_NAMES:
-            raise Exception('invalid event name: {0}'.format(event_name))
-        self.listeners[event_name].append(event_handler)

@@ -1,13 +1,13 @@
 import subprocess
 import time   
 
-class JobScheduler(object):
+class TaskScheduler(object):
     EVENT_NAMES = ['before', 'started', 'done']
 
     def __init__(self):
         self.processes = {}
         self.stopped = False
-        self.listeners = { event_name: [] for event_name in JobScheduler.EVENT_NAMES }
+        self.listeners = { event_name: [] for event_name in TaskScheduler.EVENT_NAMES }
 
     def _notify_before(self, name):
         for listener in self.listeners['before']:
@@ -41,6 +41,6 @@ class JobScheduler(object):
         return job in self.processes
 
     def on(self, event_name, event_handler):
-        if event_name not in JobScheduler.EVENT_NAMES:
+        if event_name not in TaskScheduler.EVENT_NAMES:
             raise Exception('invalid event name: {0}'.format(event_name))
         self.listeners[event_name].append(event_handler)
