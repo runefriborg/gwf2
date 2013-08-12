@@ -587,6 +587,40 @@ class Workflow(object):
         self.schedule_tasks()
         self.scheduler.run()
 
+    def schedule_tasks(self):
+        '''Schedule all missing tasks.'''
+        try:
+            for task in copy(self.missing):
+                self.schedule_task(task)
+        finally:
+            self.scheduler.stop()
+
+    def schedule_task(self, task):
+        '''Schedule a single task if all dependencies have been computed'''
+        logging.debug('scheduling task=%s', task.name)
+
+        # skip dummy tasks that we shouldn't submit...
+        if task.dummy or not task.can_execute:
+            return
+
+        # if all dependencies are done, we may schedule this task.
+        for _, dep_task in task.dependencies:
+            if dep_task.can_execute:
+                if dep_task in self.missing:
+                    logging.debug('task not scheduled - dependency %s missing', dep_task.name)
+                    return
+                if dep_task in self.running:
+                    logging.debug('task not scheduled - dependency %s running', dep_task.name)
+                    return
+
+        # schedule the task
+        logging.debug("running task=%s cwd=%s code='%s'",
+                      task.name, task.local_wd, task.code.strip())
+        self.scheduler.schedule(name=task,
+                                command=task.code.strip(),
+                                stderr=subprocess.STDOUT,
+                                cwd=task.local_wd)
+
     def move_input(self, task):
         for in_file in task.input:
             local_wd = task.local_wd
@@ -626,37 +660,6 @@ class Workflow(object):
 
     def on_job_started(self, task):
         self.running.append(task)
-
-    def schedule_tasks(self):
-        try:
-            for task in copy(self.missing):
-                self.schedule_task(task)
-        finally:
-            self.scheduler.stop()
-
-    def schedule_task(self, task):
-        logging.debug('scheduling task=%s', task.name)
-
-        # skip dummy tasks that we shouldn't submit...
-        if task.dummy or not task.can_execute:
-            return
-
-        # if all dependencies are done, we may schedule this task.
-        for _, dep_task in task.dependencies:
-            if dep_task.can_execute:
-                if dep_task in self.missing:
-                    logging.debug('task not scheduled - dependency %s missing', dep_task.name)
-                    return
-                if dep_task in self.running:
-                    logging.debug('task not scheduled - dependency %s running', dep_task.name)
-                    return
-
-        # schedule the task
-        logging.debug("running task=%s cwd=%s code='%s'", task.name, task.local_wd, task.code.strip())
-        self.scheduler.schedule(name=task,
-                                command=task.code.strip(),
-                                stderr=subprocess.STDOUT,
-                                cwd=task.local_wd)
 
     def get_available_node(self, cores_needed):
         for node, cores in self.nodes.iteritems():
