@@ -9,38 +9,38 @@ class TaskScheduler(object):
         self.stopped = False
         self.listeners = { event_name: [] for event_name in TaskScheduler.EVENT_NAMES }
 
-    def _notify_before(self, name):
+    def _notify_before(self, identifier):
         for listener in self.listeners['before']:
-            listener(name)
+            listener(identifier)
 
-    def _notify_started(self, name):
+    def _notify_started(self, identifier):
         for listener in self.listeners['started']:
-            listener(name)
+            listener(identifier)
 
-    def _notify_done(self, name, errorcode):
+    def _notify_done(self, identifier, errorcode):
         for listener in self.listeners['done']:
-            listener(name, errorcode)
+            listener(identifier, errorcode)
 
-    def schedule(self, name, command, **kwargs):
-        self._notify_before(name)
-        self.processes[name] = subprocess.Popen(command, shell=True, bufsize=1, **kwargs)
-        self._notify_started(name)
+    def schedule(self, identifier, command, **kwargs):
+        self._notify_before(identifier)
+        self.processes[identifier] = subprocess.Popen(command, shell=True, bufsize=1, **kwargs)
+        self._notify_started(identifier)
 
     def run(self):
         while not self.stopped:
-            for name, process in self.processes.items():
+            for identifier, process in self.processes.items():
                 if process.poll() is not None:
-                    self._notify_done(name, process.returncode)
-                    del self.processes[name]
+                    self._notify_done(identifier, process.returncode)
+                    del self.processes[identifier]
             time.sleep(1)
 
     def stop(self):
         self.stopped = True
 
-    def running(self, job):
-        return job in self.processes
+    def running(self, identifier):
+        return identifier in self.processes
 
     def on(self, event_name, event_handler):
         if event_name not in TaskScheduler.EVENT_NAMES:
-            raise Exception('invalid event name: {0}'.format(event_name))
+            raise Exception('invalid event identifier: {0}'.format(event_name))
         self.listeners[event_name].append(event_handler)
