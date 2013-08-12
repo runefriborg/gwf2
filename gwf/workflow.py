@@ -37,7 +37,36 @@ def _make_absolute_path(working_dir, fname):
         abspath = os.path.join(working_dir, fname)
     return os.path.normpath(abspath)
 
-PBS_JOB_ID = os.environ['PBS_JOBID']
+if 'PBS_JOB_ID' in os.environ and 'PBS_NODEFILE' in os.environ:
+    PBS_JOB_ID = os.environ['PBS_JOBID']
+    PBS_NODEFILE = os.environ['PBS_NODEFILE']
+else:
+    logging.info('running in local mode')
+
+    # fake a pbs job id
+    PBS_JOB_ID = str(time.clock())[2:12] + '.in'
+
+    # fake a pbs node file
+    import platform
+    import multiprocessing
+    cores = multiprocessing.cpu_count()
+
+    with open('local_nodefile.tmp', 'w') as fp:
+        for core in range(cores):
+            print >> fp, platform.node()
+
+    PBS_NODEFILE = 'local_nodefile.tmp'
+
+    # in local mode, we need something that corresponds to the scratch
+    # directory, so we make one in the user's home directory, unless
+    # something else is stated by the user.
+    if 'GWF_SCRATCH' in os.environ:
+        GWF_SCRATCH = os.environ['GWF_SCRATCH']
+    else:
+        GWF_SCRATCH = os.path.join(os.path.expanduser('~'), 'gwf-scratch')
+        if not os.path.exists(GWF_SCRATCH):
+            os.mkdir(GWF_SCRATCH)
+    logging.info('using fake scratch directory located in %s', GWF_SCRATCH)
 
 ## TEMPLATES 
 class Template:
@@ -398,7 +427,7 @@ class Target(ExecutableTask):
 
     @property
     def local_wd(self):
-        return '/scratch/{0}/{1}'.format(PBS_JOB_ID, self.name)
+        return os.path.join(GWF_SCRATCH, PBS_JOB_ID, self.name)
 
     @property
     def cores(self):
