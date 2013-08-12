@@ -6,15 +6,15 @@ import time
 import re
 import string
 import subprocess
-import threading
 import shutil
-import logging as log
+import logging
+from copy import copy
 from exceptions import NotImplementedError
 
 from dependency_graph import DependencyGraph
 import parser # need this to re-parse instantiated templates
 
-log.basicConfig(level=log.DEBUG)
+logging.basicConfig(level=logging.DEBUG)
 
 def _escape_file_name(fname):
     valid_chars = "-_.() %s%s" % (string.ascii_letters, string.digits)
@@ -306,6 +306,7 @@ class SystemFile(Task):
 class ExecutableTask(Task):
     '''Tasks that can be executed must provide this interface.'''
 
+    @property
     def can_execute(self):
         return True
     
@@ -430,6 +431,10 @@ class Target(ExecutableTask):
         return os.path.join(GWF_SCRATCH, PBS_JOB_ID, self.name)
 
     @property
+    def job_in_queue(self):
+        return False
+
+    @property
     def cores(self):
         return 16
 
@@ -444,19 +449,16 @@ class Target(ExecutableTask):
 
 
 ## WRAPPING IT ALL UP IN A WORKFLOW...
-class Workflow:
+class Workflow(object):
     '''Class representing a workflow.'''
 
-    def __init__(self, lists, templates, targets, template_targets, wd):
+    def __init__(self, lists, templates, targets, template_targets, wd, target_name):
         self.lists = lists
         self.templates = templates
         self.targets = targets
         self.template_targets = template_targets
         self.working_dir = wd
-
-        self.scheduler = JobScheduler()
-        self.scheduler.on('started', self.job_started)
-        self.scheduler.on('done', self.job_finished)
+        self.target_name = target_name
 
         # handle list transformation...
         for cmd in self.lists.values():
@@ -552,105 +554,112 @@ class Workflow:
         # Figure out how many cores each allocated node has available. We need
         # this when scheduling jobs.
         self.nodes = {}
-        with open(os.environ['PBS_NODEFILE']) as node_file:
+        with open(PBS_NODEFILE) as node_file:
             for node in node_file:
                 node_name = node.strip()
                 if not node_name in self.nodes:
                     self.nodes[node_name] = 0
                 self.nodes[node_name] += 1
 
-    def move_input_files(self, job):
-        for in_file in job.task.input:
-            local_wd = job.task.local_wd
-            relative_path = os.path.relpath(in_file, job.task.wd)
-            try:
-                os.makedirs(os.path.join(local_wd, os.path.dirname(relative_path)))
-            except OSError as exc:
-                pass
-            log.debug("copying %s to %s", in_file, os.path.join(local_wd, relative_path))
+        # Compute the schedule and...
+        target = self.targets[target_name]
+        self.schedule, self.scheduled_tasks = self.dependency_graph.schedule(target.name)
+
+        # Build a list of all the jobs that have not been completed yet.
+        # Jobs should be removed from this list when they have completed.
+        self.missing = [job.task for job in self.schedule]
+
+        # This list contains all the running jobs.
+        self.running = list()
+        
+        # ... then start the scheduler to actually run the jobs.
+        self.scheduler = JobScheduler()
+        self.scheduler.on('before', self.on_before_job_started)
+        self.scheduler.on('started', self.on_job_started)
+        self.scheduler.on('done', self.on_job_done)
+
+        # Now, schedule everything that can be scheduled...
+        # NOTE: The copy is IMPORTANT since we modify missing
+        #       during scheduling.
+        for task in copy(self.missing):
+            self.schedule_task(task)
+
+        self.scheduler.run()
+
+    def move_input(self, task):
+        for in_file in task.input:
+            local_wd = task.local_wd
+            relative_path = os.path.relpath(in_file, task.wd)
+
+            base_dir = os.path.join(local_wd, os.path.dirname(relative_path))
+            if not os.path.exists(base_dir):
+                logging.debug('creating directory structure %s', os.path.join(local_wd, os.path.dirname(relative_path)))
+                os.makedirs(base_dir)
+
+            logging.debug("copying %s to %s", in_file, os.path.join(local_wd, relative_path))
             shutil.copyfile(in_file, os.path.join(local_wd, relative_path))
 
-    def move_output_files(self, job):
-        for out_file in job.task.output:
-            relative_path = os.path.relpath(out_file, job.task.wd)
-            absolute_path = os.path.join(job.task.local_wd, relative_path)
-            log.debug('copying out file from %s to %s', absolute_path, out_file)
+    def move_output(self, task):
+        for out_file in task.output:
+            relative_path = os.path.relpath(out_file, task.wd)
+            absolute_path = os.path.join(task.local_wd, relative_path)
+            logging.debug('copying out file from %s to %s', absolute_path, out_file)
             shutil.copyfile(absolute_path, out_file)
 
-    def job_finished(self, job):
-        log.info('finished job: %s', job)
-        self.move_output_files(job)
-        job.task.done = True
-        job.task.running = False
+    def on_before_job_started(self, task):
+        self.missing.remove(task)
 
-    def job_started(self, job):
-        log.info('running job: %s', job)
-        job.task.done = False
-        job.task.running = True
+        # move all input files to local working directory
+        self.move_input(task)
 
-    def run_workflow(self, target_name):
-        '''Running the given workflow
+    def on_job_done(self, task, errorcode):
+        if errorcode > 0:
+            logging.error('task %s finished with non-zero error code %s - halting', task.name, errorcode)
+            self.scheduler.stop()
 
-        Running a workflow consists of scheduling the tasks such that
-        all dependencies are fulfilled. To minimize IO to remote storage,
-        we allocate machines dynamically and copy files directly between
-        machines.
-        '''
-        target = self.targets[target_name]
-        schedule, scheduled_tasks = self.dependency_graph.schedule(target.name)
+        logging.info('finished task: %s', task.name)
+        self.move_output(task)
+        self.running.remove(task)
 
         try:
-            while not all(job.task.done for job in schedule):
-                for job in schedule:
-                    # skip dummy tasks that we shouldn't submit...
-                    if job.task.done or job.task.running or job.task.dummy or not job.task.can_execute:
-                        continue
-
-                    # if all dependencies are done, we may schedule this job. This
-                    # also handles the case of no dependencies since all([]) == True.
-                    if not all(dep_job.done for resource, dep_job in job.task.dependencies if dep_job.can_execute):
-                        continue
-
-                    local_wd = job.task.local_wd
-                    try:
-                        os.mkdir(local_wd)
-                    except OSError as e:
-                        log.warning("local working dir already exists at %s", local_wd)
-
-                    # move all input files to local working directory
-                    self.move_input_files(job)
-
-                    # schedule the job
-                    self.scheduler.schedule(job,
-                                            job.task.code.strip(),
-                                            stderr=subprocess.STDOUT,
-                                            cwd=local_wd)
-
-                log.debug('scheduling done, jobs left: %s', 
-                          ', '.join(job.task.name for job in schedule if not job.task.done and not job.task.running))
-                time.sleep(0.5)
-        except:
-            raise
+            for task in self.missing:
+                self.schedule_task(task)
         finally:
             self.scheduler.stop()
+
+    def on_job_started(self, task):
+        self.running.append(task)
+
+    def schedule_task(self, task):
+        # skip dummy tasks that we shouldn't submit...
+        if task.dummy or not task.can_execute:
+            return
+
+        # if all dependencies are done, we may schedule this task.
+        for resource, dep_job in task.dependencies:
+            if dep_job.can_execute and (dep_job in self.missing or dep_job in self.running):
+                logging.debug('did not schedule task %s', task.name)
+                return
+
+        # schedule the task
+        logging.debug("running task=%s cwd=%s code='%s'", task.name, task.local_wd, task.code.strip())
+        self.scheduler.schedule(name=task,
+                                command=task.code.strip(),
+                                stderr=subprocess.STDOUT,
+                                cwd=task.local_wd)
 
     def get_available_node(self, cores_needed):
         for node, cores in self.nodes.iteritems():
             if cores >= cores_needed:
                 return node
 
-class JobScheduler(threading.Thread):
+class JobScheduler(object):
     EVENT_NAMES = ['before', 'started', 'done']
 
     def __init__(self):
-        threading.Thread.__init__(self)
-
         self.processes = {}
         self.stopped = False
-
-        self.listeners = dict((event_name, []) for event_name in JobScheduler.EVENT_NAMES)
-
-        self.start()
+        self.listeners = { event_name: [] for event_name in JobScheduler.EVENT_NAMES }
 
     def _notify_before(self, name):
         for listener in self.listeners['before']:
@@ -660,25 +669,28 @@ class JobScheduler(threading.Thread):
         for listener in self.listeners['started']:
             listener(name)
 
-    def _notify_done(self, name):
+    def _notify_done(self, name, errorcode):
         for listener in self.listeners['done']:
-            listener(name)
+            listener(name, errorcode)
 
     def schedule(self, name, command, **kwargs):
         self._notify_before(name)
-        self.processes[name] = subprocess.Popen(command, shell=True, **kwargs)
+        self.processes[name] = subprocess.Popen(command, shell=True, bufsize=1, **kwargs)
         self._notify_started(name)
 
     def run(self):
         while not self.stopped:
             for name, process in self.processes.items():
                 if process.poll() is not None:
-                    self._notify_done(name)
+                    self._notify_done(name, process.returncode)
                     del self.processes[name]
             time.sleep(0.1)
 
     def stop(self):
         self.stopped = True
+
+    def running(self, job):
+        return job in self.processes
 
     def on(self, event_name, event_handler):
         if event_name not in JobScheduler.EVENT_NAMES:

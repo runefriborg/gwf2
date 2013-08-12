@@ -23,12 +23,10 @@ parser.add_argument('target', nargs=1,
 
 args = parser.parse_args()
 
-workflow = parse(args.workflow_file)
 target = args.target[0]
 
-if target not in workflow.targets:
-    print 'Target %s not found in workflow.' % target
-    sys.exit(2)
+# if target not in workflow.targets:
+#     print 'Target %s not found in workflow.' % target
+#     sys.exit(2)
 
-print "running workflow"
-workflow.run_workflow(target)
+parse(args.workflow_file, target)
