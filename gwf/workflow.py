@@ -628,7 +628,8 @@ class Workflow(object):
 
             base_dir = os.path.join(local_wd, os.path.dirname(relative_path))
             if not os.path.exists(base_dir):
-                logging.debug('creating directory structure %s', os.path.join(local_wd, os.path.dirname(relative_path)))
+                logging.debug('creating directory structure %s',
+                              os.path.join(local_wd, os.path.dirname(relative_path)))
                 os.makedirs(base_dir)
 
             logging.debug("copying %s to %s", in_file, os.path.join(local_wd, relative_path))
