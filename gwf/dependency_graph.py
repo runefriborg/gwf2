@@ -100,7 +100,7 @@ class DependencyGraph:
                 dfs(dep)
             
             # If this task needs to run, then schedule it
-            if node.should_run or node.task.job_in_queue:
+            if node.should_run:
                 schedule.append(node)
                 scheduled.add(node.name)
                 
