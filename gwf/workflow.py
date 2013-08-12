@@ -11,7 +11,9 @@ import logging
 from copy import copy
 from exceptions import NotImplementedError
 
+from scheduler import JobScheduler
 from dependency_graph import DependencyGraph
+
 import parser # need this to re-parse instantiated templates
 
 logging.basicConfig(level=logging.DEBUG)
@@ -37,14 +39,13 @@ def _make_absolute_path(working_dir, fname):
         abspath = os.path.join(working_dir, fname)
     return os.path.normpath(abspath)
 
-if 'PBS_JOB_ID' in os.environ and 'PBS_NODEFILE' in os.environ:
-    PBS_JOB_ID = os.environ['PBS_JOBID']
-    PBS_NODEFILE = os.environ['PBS_NODEFILE']
-else:
+if 'PBS_JOB_ID' not in os.environ and \
+    'PBS_NODEFILE' not in os.environ and \
+    'GWF_SCRATCH' not in os.environ:
     logging.info('running in local mode')
 
     # fake a pbs job id
-    PBS_JOB_ID = str(time.clock())[2:12] + '.in'
+    os.environ['PBS_JOBID'] = str(time.clock())[2:12] + '.in'
 
     # fake a pbs node file
     import platform
@@ -55,18 +56,20 @@ else:
         for core in range(cores):
             print >> fp, platform.node()
 
-    PBS_NODEFILE = 'local_nodefile.tmp'
+    os.environ['PBS_NODEFILE'] = 'local_nodefile.tmp'
 
     # in local mode, we need something that corresponds to the scratch
     # directory, so we make one in the user's home directory, unless
     # something else is stated by the user.
-    if 'GWF_SCRATCH' in os.environ:
-        GWF_SCRATCH = os.environ['GWF_SCRATCH']
-    else:
-        GWF_SCRATCH = os.path.join(os.path.expanduser('~'), 'gwf-scratch')
-        if not os.path.exists(GWF_SCRATCH):
-            os.mkdir(GWF_SCRATCH)
-    logging.info('using fake scratch directory located in %s', GWF_SCRATCH)
+    os.environ['GWF_SCRATCH'] = os.path.join(os.path.expanduser('~'), 'gwf-scratch')
+    logging.info('using fake scratch directory located in %s', os.environ['GWF_SCRATCH'])
+
+PBS_JOB_ID   = os.environ['PBS_JOBID']
+PBS_NODEFILE = os.environ['PBS_NODEFILE']
+GWF_SCRATCH  = os.environ['GWF_SCRATCH']
+
+if not os.path.exists(GWF_SCRATCH):
+    os.mkdir(GWF_SCRATCH)
 
 ## TEMPLATES 
 class Template:
