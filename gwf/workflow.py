@@ -638,7 +638,6 @@ class Workflow(object):
         # if all dependencies are done, we may schedule this task.
         for resource, dep_job in task.dependencies:
             if dep_job.can_execute and (dep_job in self.missing or dep_job in self.running):
-                logging.debug('did not schedule task %s', task.name)
                 return
 
         # schedule the task
