@@ -79,9 +79,11 @@ def remote(command, node, *args, **kwargs):
     process = RemoteProcess(command, node, *args, **kwargs)
     process.run()
     process.wait()
+    return process.returncode
 
 
 def local(command, *args, **kwargs):
     process = LocalProcess(command, *args, **kwargs)
     process.run()
     process.wait()
+    return process.returncode
