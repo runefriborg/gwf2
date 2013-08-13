@@ -76,6 +76,18 @@ class RemoteProcess(LocalProcess):
         super(RemoteProcess, self).__init__(ssh_command, *args, **kwargs)
 
 
+def remote(command, node, *args, **kwargs):
+    process = RemoteProcess(command, node, *args, **kwargs)
+    process.run()
+    process.wait()
+
+
+def local(command, *args, **kwargs):
+    process = LocalProcess(command, *args, **kwargs)
+    process.run()
+    process.wait()
+
+
 class TaskScheduler(object):
     EVENT_NAMES = ['before', 'started', 'done']
 
