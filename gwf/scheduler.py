@@ -14,6 +14,9 @@ class Process(object):
     def poll(self):
         raise NotImplementedError()
 
+    def wait(self):
+        raise NotImplementedError()
+
     @property
     def running(self):
         raise NotImplementedError()
@@ -45,6 +48,9 @@ class LocalProcess(Process):
 
     def poll(self):
         return self.process.poll()
+
+    def wait(self):
+        self.process.wait()
 
     @property
     def running(self):
