@@ -573,10 +573,14 @@ class Workflow(object):
         # schedule the task
         logging.debug("running task=%s cwd=%s code='%s'",
                       task.name, task.local_wd, task.code.strip())
-        self.scheduler.schedule(identifier=task,
-                                command=task.code.strip(),
                                 stderr=subprocess.STDOUT,
                                 cwd=task.local_wd)
+
+        process = LocalProcess(task.code.strip(),
+                               stderr=subprocess.STDOUT,
+                               cwd=task.local_wd)
+
+        self.scheduler.schedule(identifier=task, process=process)
 
     def move_input(self, task):
         for in_file in task.input:
