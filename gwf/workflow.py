@@ -12,7 +12,8 @@ import logging
 from copy import copy
 from exceptions import NotImplementedError
 
-from scheduler import TaskScheduler, LocalProcess
+from scheduler import TaskScheduler
+from process import LocalProcess
 from dependency_graph import DependencyGraph
 
 import parser  # need this to re-parse instantiated templates
