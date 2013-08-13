@@ -69,6 +69,8 @@ class RemoteProcess(LocalProcess):
     SSH_TEMPLATE = 'ssh {host} "cd {cwd} && {command}"'
 
     def __init__(self, command, host, *args, **kwargs):
+        if 'cwd' not in kwargs:
+            kwargs['cwd'] = '.'
         ssh_command = RemoteProcess.SSH_TEMPLATE.format(command=command,
                                                         host=host,
                                                         **kwargs)
