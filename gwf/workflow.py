@@ -446,7 +446,13 @@ class Workflow(object):
 
     '''Class representing a workflow.'''
 
-    def __init__(self, lists, templates, targets, template_targets, wd, target_name):
+    def __init__(self,
+                 lists,
+                 templates,
+                 targets,
+                 template_targets,
+                 wd,
+                 target_name):
         self.lists = lists
         self.templates = templates
         self.targets = targets
@@ -558,8 +564,8 @@ class Workflow(object):
 
         # Compute the schedule and...
         target = self.targets[target_name]
-        self.schedule, self.scheduled_tasks = self.dependency_graph.schedule(
-            target.name)
+        self.schedule, self.scheduled_tasks = \
+            self.dependency_graph.schedule(target.name)
 
         # Build a list of all the jobs that have not been completed yet.
         # Jobs should be removed from this list when they have completed.
@@ -600,11 +606,13 @@ class Workflow(object):
             if dep_task.can_execute:
                 if dep_task in self.missing:
                     logging.debug(
-                        'task not scheduled - dependency %s missing', dep_task.name)
+                        'task not scheduled - dependency %s missing',
+                        dep_task.name)
                     return
                 if dep_task in self.running:
                     logging.debug(
-                        'task not scheduled - dependency %s running', dep_task.name)
+                        'task not scheduled - dependency %s running',
+                        dep_task.name)
                     return
 
         # schedule the task
@@ -695,7 +703,8 @@ class Workflow(object):
     def on_job_done(self, task, errorcode):
         if errorcode > 0:
             logging.error(
-                'task %s stopped with non-zero error code %s - halting', task.name, errorcode)
+                'task %s stopped with non-zero error code %s - halting',
+                task.name, errorcode)
             self.scheduler.stop()
 
         # if this task is the final task, we should copy its output files to
