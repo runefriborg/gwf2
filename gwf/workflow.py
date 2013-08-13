@@ -13,7 +13,8 @@ from copy import copy
 from exceptions import NotImplementedError
 
 from scheduler import TaskScheduler
-from process import LocalProcess
+from process import RemoteProcess
+from process import local, remote
 from dependency_graph import DependencyGraph
 
 import parser  # need this to re-parse instantiated templates
@@ -542,6 +543,9 @@ class Workflow(object):
         # build the dependency graph
         self.dependency_graph = DependencyGraph(self)
 
+        # task -> host mapping such that we know where each task was executed.
+        self.locations = {}
+
         # Figure out how many cores each allocated node has available. We need
         # this when scheduling jobs.
         self.nodes = {}
@@ -607,34 +611,80 @@ class Workflow(object):
         logging.debug("running task=%s cwd=%s code='%s'",
                       task.name, task.local_wd, task.code.strip())
 
-        process = LocalProcess(task.code.strip(),
-                               stderr=subprocess.STDOUT,
-                               cwd=task.local_wd)
+        host = self.get_available_node(task.cores)
 
-        self.scheduler.schedule(identifier=task, process=process)
+        # decrease the number of cores that the chosen node has available
+        self.nodes[host] -= task.cores
+        self.locations[task] = host
+
+        process = RemoteProcess(task.code.strip(),
+                                host,
+                                stderr=subprocess.STDOUT,
+                                cwd=task.local_wd)
+
+        self.scheduler.schedule(task, process)
 
     def move_input(self, task):
-        for in_file in task.input:
-            local_wd = task.local_wd
-            relative_path = os.path.relpath(in_file, task.wd)
+        logging.info('fetching dependencies for %s' % task.name)
+        for in_file, dependency in task.dependencies:
+            if isinstance(dependency, SystemFile):
+                local_wd = task.local_wd
+                relative_path = os.path.relpath(in_file, task.wd)
 
-            base_dir = os.path.join(local_wd, os.path.dirname(relative_path))
-            if not os.path.exists(base_dir):
-                logging.debug('creating directory structure %s',
-                              os.path.join(local_wd, os.path.dirname(relative_path)))
-                os.makedirs(base_dir)
+                base_dir = os.path.join(local_wd,
+                                        os.path.dirname(relative_path))
+                if not os.path.exists(base_dir):
+                    logging.debug('creating directory structure %s',
+                                  os.path.join(local_wd,
+                                               os.path.dirname(relative_path)))
+                    os.makedirs(base_dir)
 
-            logging.debug(
-                "copying %s to %s", in_file, os.path.join(local_wd, relative_path))
-            shutil.copyfile(in_file, os.path.join(local_wd, relative_path))
+                logging.debug("copying %s to %s",
+                              in_file, os.path.join(local_wd, relative_path))
+                shutil.copyfile(in_file, os.path.join(local_wd, relative_path))
+            elif isinstance(dependency, Target):
+                # build path to file on remote source and destionation
+                relpath = os.path.relpath(in_file, self.working_dir)
+                src_path = os.path.join(dependency.local_wd, relpath)
+                dst_path = os.path.join(task.local_wd, relpath)
+
+                # figure out source and destination hosts
+                src_host = self.locations[dependency]
+                dst_host = self.locations[task]
+
+                # first create the destination directory on the destination
+                # node.
+                logging.debug('making destination directory %s on host %s' %
+                              (os.path.dirname(dst_path), dst_host))
+                remote('mkdir -p {0}'.format(os.path.dirname(dst_path)),
+                       dst_host)
+
+                command = 'scp {0}:{1} {2}:{3}'.format(src_host,
+                                                       src_path,
+                                                       dst_host,
+                                                       dst_path)
+                logging.debug('%s' % command)
+                local(command)
+            else:
+                assert False, "should never reach this case"
 
     def move_output(self, task):
         for out_file in task.output:
-            relative_path = os.path.relpath(out_file, task.wd)
-            absolute_path = os.path.join(task.local_wd, relative_path)
-            logging.debug(
-                'copying out file from %s to %s', absolute_path, out_file)
-            shutil.copyfile(absolute_path, out_file)
+            relpath = os.path.relpath(out_file, self.working_dir)
+
+            # figure out where this task was run and its path at that host
+            src_host = self.locations[task]
+            src_path = os.path.join(task.local_wd, relpath)
+
+            # make the directory which we're going to copy to
+            local('mkdir -p {0}'.format(os.path.dirname(out_file)))
+
+            # now copy the file to the workflow working directory
+            command = 'scp {0}:{1} {2}'.format(src_host,
+                                               src_path,
+                                               out_file)
+            logging.debug('%s' % command)
+            remote(command, src_host)
 
     def on_before_job_started(self, task):
         self.missing.remove(task)
@@ -648,10 +698,21 @@ class Workflow(object):
                 'task %s stopped with non-zero error code %s - halting', task.name, errorcode)
             self.scheduler.stop()
 
-        logging.info('task done: %s', task.name)
-        self.move_output(task)
+        # if this task is the final task, we should copy its output files to
+        # the the workflow directory.
+        if task.name == self.target_name:
+            self.move_output(task)
+
         self.running.remove(task)
 
+        # figure out where this task was run and increment the number of cores
+        # available on the host, since the job is now done.
+        host = self.locations[task]
+        self.nodes[host] += task.cores
+
+        logging.info('task done: %s', task.name)
+
+        # reschedule now that we know that a task has finished
         self.schedule_tasks()
 
     def on_job_started(self, task):
