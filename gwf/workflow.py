@@ -435,6 +435,7 @@ class Target(ExecutableTask):
 
         assert False, "We shouldn't get here"
 
+    @property
     def local_wd(self):
         return os.path.join(GWF_SCRATCH, PBS_JOB_ID, self.name)
 
