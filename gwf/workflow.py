@@ -353,6 +353,7 @@ class Target(ExecutableTask):
         self.flags = flags
         self.code = code
         self.wd = wd
+        self.host = None
 
         if 'dummy' in self.flags and len(self.output) > 0:
             print 'Target %s is marked as a dummy target but has output files.'
@@ -441,7 +442,7 @@ class Target(ExecutableTask):
 
     @property
     def cores(self):
-        return 16
+        return 4
 
     @property
     def checkpoint(self):
@@ -565,9 +566,6 @@ class Workflow(object):
         # build the dependency graph
         self.dependency_graph = DependencyGraph(self)
 
-        # task -> host mapping such that we know where each task was executed.
-        self.locations = {}
-
         # Figure out how many cores each allocated node has available. We need
         # this when scheduling jobs.
         self.nodes = {}
@@ -639,7 +637,7 @@ class Workflow(object):
 
         # decrease the number of cores that the chosen node has available
         self.nodes[host] -= task.cores
-        self.locations[task] = host
+        task.host = host
 
         process = RemoteProcess(task.code.strip(),
                                 host,
@@ -673,14 +671,13 @@ class Workflow(object):
                 dst_path = os.path.join(task.local_wd, relpath)
 
                 # figure out source and destination hosts
-                src_host = self.locations[dependency]
-                dst_host = self.locations[task]
+                src_host = dependency.host
+                dst_host = task.host
 
                 # if the dependency was checkpointed, we check if the file
                 # exists on the node at which it was generated. If not,
                 # we should fetch the file from remote storage.
-                if dependency.checkpoint and \
-                        remote('stat {0}'.format(src_path), src_host) < 0:
+                if dependency.checkpoint and not dependency.host:
                     src_host = dst_host
                     src_path = in_file
 
@@ -725,7 +722,7 @@ class Workflow(object):
             relpath = os.path.relpath(out_file, self.working_dir)
 
             # figure out where this task was run and its path at that host
-            src_host = self.locations[task]
+            src_host = task.host
             src_path = os.path.join(task.local_wd, relpath)
 
             # make the directory which we're going to copy to
@@ -767,7 +764,7 @@ class Workflow(object):
 
         # figure out where this task was run and increment the number of cores
         # available on the host, since the job is now done.
-        host = self.locations[task]
+        host = task.host
         self.nodes[host] += task.cores
 
         self.running.remove(task)
@@ -779,7 +776,7 @@ class Workflow(object):
 
     def cleanup(self, task):
         # figure out where the task was executed
-        host = self.locations[task]
+        host = task.host
 
         # delete the task directory on the host
         logging.debug('deleting directory %s on host %s' %
