@@ -258,6 +258,7 @@ class Task:
         self.dependencies = dependencies
         self.working_dir = wd
         self.is_dummy = False
+        self.references = 0
 
     @property
     def should_run(self):
