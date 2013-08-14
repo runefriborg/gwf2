@@ -249,7 +249,7 @@ class Transform(List):
 
 
 # TASKS (TARGETS, FILES, AND ANYTHING THE WORKFLOW ACTUALLY SEES)
-class Task:
+class Task(object):
 
     '''Abstract class for items in the workflow.'''
 
@@ -258,7 +258,18 @@ class Task:
         self.dependencies = dependencies
         self.working_dir = wd
         self.is_dummy = False
-        self.references = 0
+
+        self._references = 0
+
+    @property
+    def references(self):
+        return self._references
+
+    @references.setter
+    def references(self, value):
+        self._references = value
+        assert self._references >= 0, \
+            "task cannot have negative number of references"
 
     @property
     def should_run(self):
@@ -713,17 +724,35 @@ class Workflow(object):
         if task.name == self.target_name:
             self.move_output(task)
 
-        self.running.remove(task)
+        # decrease references for all dependencies of this task. Cleanup will
+        # automatically be run for the dependency if its reference count is 0.
+        for _, dependency in task.dependencies:
+            if not isinstance(dependency, Target):
+                continue
+            dependency.references -= 1
+            if dependency.references == 0:
+                self.cleanup(dependency)
 
         # figure out where this task was run and increment the number of cores
         # available on the host, since the job is now done.
         host = self.locations[task]
         self.nodes[host] += task.cores
 
+        self.running.remove(task)
+
         logging.info('task done: %s', task.name)
 
         # reschedule now that we know that a task has finished
         self.schedule_tasks()
+
+    def cleanup(self, task):
+        # figure out where the task was executed
+        host = self.locations[task]
+
+        # delete the task directory on the host
+        logging.debug('deleting directory %s on host %s' %
+                      (task.local_wd, host))
+        remote('rm -rf {0}'.format(task.local_wd), host)
 
     def on_job_started(self, task):
         self.running.append(task)
