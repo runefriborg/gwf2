@@ -443,6 +443,10 @@ class Target(ExecutableTask):
     def cores(self):
         return 16
 
+    @property
+    def checkpoint(self):
+        return 'checkpoint' in self.flags
+
     def __str__(self):
         return '@target %s, input(%s) -> output(%s)' % (
             self.name,
@@ -672,6 +676,14 @@ class Workflow(object):
                 src_host = self.locations[dependency]
                 dst_host = self.locations[task]
 
+                # if the dependency was checkpointed, we check if the file
+                # exists on the node at which it was generated. If not,
+                # we should fetch the file from remote storage.
+                if dependency.checkpoint and \
+                        remote('stat {0}'.format(src_path), src_host) < 0:
+                    src_host = dst_host
+                    src_path = in_file
+
                 # if the source host is the same as the destination host, we
                 # won't copy any files, but just make a hardlink to the source
                 # file.
@@ -734,7 +746,7 @@ class Workflow(object):
 
         # if this task is the final task, we should copy its output files to
         # the the workflow directory.
-        if task.name == self.target_name:
+        if task.name == self.target_name or task.checkpoint:
             self.move_output(task)
 
         # decrease references for all dependencies of this task. Cleanup will
