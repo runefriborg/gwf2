@@ -684,6 +684,13 @@ class Workflow(object):
                     src_host = dst_host
                     src_path = in_file
 
+                    if local('stat {0}'.format(src_path)) < 0:
+                        logging.error('''output of checkpointed
+                                      dependency does not exist at %s --
+                                      halting''' %
+                                      src_path)
+                        os.exit(1)
+
                 # if the source host is the same as the destination host, we
                 # won't copy any files, but just make a hardlink to the source
                 # file.
