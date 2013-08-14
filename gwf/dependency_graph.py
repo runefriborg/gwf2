@@ -27,6 +27,8 @@ class DependencyGraph:
             if name not in self.nodes:
                 self.nodes[name] = self.build_DAG(target)
 
+        self.count_references()
+
     def add_node(self, task, dependencies):
         '''Create a graph node for a workflow task, assuming that its
         dependencies are already wrapped in nodes. The type of node
@@ -68,6 +70,18 @@ class DependencyGraph:
 
     def get_node(self, name):
         return self.nodes[name]
+
+    def count_references(self):
+        root = self.nodes[self.workflow.target_name]
+
+        def dfs(node):
+            if node != root:
+                node.task.references += 1
+
+            # schedule all dependencies before we schedule this task
+            for _, dep in node.dependencies:
+                dfs(dep)
+        dfs(root)
 
     def schedule(self, target_name):
         '''Linearize the targets to be run.
