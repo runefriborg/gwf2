@@ -2,38 +2,22 @@
 
 
 class Node:
+
     '''A node in the dependencies DAG.'''
-    
+
     def __init__(self, name, task, dependencies):
         self.name = name
         self.task = task
         self.dependencies = dependencies
-        
+
         # The node needs to be run if what it contains needs to be run
         # or any of the upstream nodes need to be run...
         self.should_run = self.task.should_run or \
-                any(dep.should_run for _,dep in dependencies)
-    
-    def print_graphviz(self, out):
-        '''Print the graphviz description of this node to "out".'''
-    
-        shape = 'shape = %s' % self.task.graphviz_shape
-        
-        if self.task.should_run:
-            col = 'color = red, style=bold'
-        elif self.should_run:
-            col = 'color = red'
-        else:
-            col = 'color = darkgreen'
+            any(dep.should_run for _, dep in dependencies)
 
-        print >> out, '"%s"'%self.name, 
-        print >> out, '[',
-        print >> out, ','.join([shape, col]),
-        print >> out, ']',
-        print >> out, ';'
-    
 
 class DependencyGraph:
+
     '''A complete dependency graph, with code for scheduling a workflow.'''
 
     def __init__(self, workflow):
@@ -42,43 +26,43 @@ class DependencyGraph:
         for name, target in workflow.targets.items():
             if name not in self.nodes:
                 self.nodes[name] = self.build_DAG(target)
-    
-        
+
+        self.count_references()
+
     def add_node(self, task, dependencies):
         '''Create a graph node for a workflow task, assuming that its
         dependencies are already wrapped in nodes. The type of node
         depends on the type of task.
-        
+
         Here we call the objects from the workflow for "tasks" and the
         nodes in the dependency graph for "nodes" and we represent each
         "task" with one "node", keeping the graph structure captured by
         nodes in the dependency DAG and the execution logic in the
         objects they refer to.'''
-        
+
         node = Node(task.name, task, dependencies)
         self.nodes[task.name] = node
         return node
-        
-    
+
     def build_DAG(self, task):
         '''Run through all the dependencies for "target" and build the
         nodes that are needed into the graph, returning a new node with
         dependencies.
-        
+
         Here we call the objects from the workflow for "tasks" and the
         nodes in the dependency graph for "nodes" and we represent each
         "task" with one "node", keeping the graph structure captured by
         nodes in the dependency DAG and the execution logic in the
         objects they refer to.'''
-        
+
         def dfs(task):
             if task.name in self.nodes:
                 return self.get_node(task.name)
-                
+
             else:
                 deps = [(fname, dfs(dep)) for fname, dep in task.dependencies]
                 return self.add_node(task, deps)
-        
+
         return dfs(task)
 
     def has_node(self, name):
@@ -87,45 +71,34 @@ class DependencyGraph:
     def get_node(self, name):
         return self.nodes[name]
 
-    def print_workflow_graph(self, out):
-    	'''Print the workflow to file object out in graphviz format.'''
-    	
-    	print >> out, 'digraph workflow {'
-    	
-    	# Handle nodes
-    	for node in self.nodes.values():
-    	    node.print_graphviz(out)
-    		    	
-    	# Handle edges
-    	for src in self.nodes.values():
-    	    for fname,dst in src.dependencies:
-    	        print >> out, '"%s"'%dst.name, '->', '"%s"'%src.name,
-    	        print >> out, '[label="%s"]' % fname,
-    	        print >> out, ';'
-    	        
+    def count_references(self):
+        root = self.nodes[self.workflow.target_name]
 
-    	print >> out, '}'
-    	
-    	
-    	
-    	
+        def dfs(node):
+            if node != root:
+                node.task.references += 1
+
+            # schedule all dependencies before we schedule this task
+            for _, dep in node.dependencies:
+                dfs(dep)
+        dfs(root)
 
     def schedule(self, target_name):
         '''Linearize the targets to be run.
-        
+
         Returns a list of tasks to be run (in the order they should run or
         be submitted to the cluster to make sure dependences are handled
         correctly) and a set of the names of tasks that will be scheduled
         (to make sure dependency flags are set in the qsub command).
-        
+
         '''
-        
+
         root = self.nodes[target_name]
-        
+
         processed = set()
         scheduled = set()
         schedule = []
-        
+
         def dfs(node):
             if node in processed:
                 # we have already processed the node, and
@@ -134,16 +107,16 @@ class DependencyGraph:
                 return node.name in scheduled
 
             # schedule all dependencies before we schedule this task
-            for _,dep in node.dependencies:
+            for _, dep in node.dependencies:
                 dfs(dep)
-            
+
             # If this task needs to run, then schedule it
             if node.should_run:
                 schedule.append(node)
                 scheduled.add(node.name)
-                
+
             processed.add(node)
 
         dfs(root)
-            
+
         return schedule, scheduled

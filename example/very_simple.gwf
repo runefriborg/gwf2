@@ -1,0 +1,13 @@
+This is an example workflow.
+
+@target TargetA
+:input ponAbe2.fa.gz
+:output head.ponAbe2.fa.gz
+
+head ponAbe2.fa.gz > head.ponAbe2.fa.gz
+
+@target TargetB
+:input head.ponAbe2.fa.gz
+:output extended.ponAbe2.fa.gz
+
+echo "GREATAPE" | cat - head.ponAbe2.fa.gz > extended.ponAbe2.fa.gz

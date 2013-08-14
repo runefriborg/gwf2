@@ -2,14 +2,14 @@ This is an example workflow for read mapping using bwa and samtools.
 
 @target IndexGenome
 :input ponAbe2.fa.gz
-:output ponabe2-bwaidx.amb ponabe2-bwaidx.ann ponabe2-bwaidx.pac
+:output ponabe2-bwaidx.amb ponabe2-bwaidx.ann ponabe2-bwaidx.pac ponabe2-bwaidx.sa ponabe2-bwaidx.bwt
 
 bwa index -p ponabe2-bwaidx -a bwtsw ponAbe2.fa.gz
 
 
 @target MapReads
 :input Masala_R1.fastq.gz Masala_R2.fastq.gz
-:input ponabe2-bwaidx.amb ponabe2-bwaidx.ann ponabe2-bwaidx.pac
+:input ponabe2-bwaidx.amb ponabe2-bwaidx.ann ponabe2-bwaidx.pac ponabe2-bwaidx.sa ponabe2-bwaidx.bwt
 :output Masala.unsorted.bam
 :pbs -l nodes=1:ppn=16
 :pbs -l walltime=1:0:0

@@ -23,37 +23,10 @@ parser.add_argument('target', nargs=1,
 
 args = parser.parse_args()
 
-workflow = parse(args.workflow_file)
 target = args.target[0]
-if target not in workflow.targets:
-    print 'Target %s not found in workflow.' % target
-    sys.exit(2)
 
+# if target not in workflow.targets:
+#     print 'Target %s not found in workflow.' % target
+#     sys.exit(2)
 
-
-if args.local:
-    script = workflow.get_local_execution_script(target)
-    if args.dry_run:
-        print 'When run, the following script will be executed:'
-        print
-        print script
-        print
-
-    else:
-        print 'Running script'
-        print script
-        os.system(script)
-        print 'Done'    
-
-else:
-    script = workflow.get_submission_script(target)
-    if args.dry_run:
-        print 'When run, the following script will be executed:'
-        print
-        print script
-        print
-
-    else:
-        print 'Submitting jobs to queue...'
-        os.system(script)
-        print 'Done'
+parse(args.workflow_file, target)
