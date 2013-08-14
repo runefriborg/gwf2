@@ -1,15 +1,14 @@
 #!/Users/mailund/anaconda/bin/python
 
-import os
 import sys
-from gwf.parser import parse
-
-
 import argparse
+
+from gwf.parser import parse
+from gwf.task_scheduler import TaskScheduler
 
 parser = argparse.ArgumentParser(description='Submit a workflow to the grid.')
 
-parser.add_argument('-f', '--file', 
+parser.add_argument('-f', '--file',
                     default='workflow.gwf', dest='workflow_file',
                     help='Workflow file if not the default (workflow.gwf).')
 parser.add_argument('-d', '--dry-run', default=False, action='store_true',
@@ -25,8 +24,10 @@ args = parser.parse_args()
 
 target = args.target[0]
 
-# if target not in workflow.targets:
-#     print 'Target %s not found in workflow.' % target
-#     sys.exit(2)
+workflow = parse(args.workflow_file, target)
+if target not in workflow.targets:
+    print 'Target %s not found in workflow.' % target
+    sys.exit(2)
 
-parse(args.workflow_file, target)
+scheduler = TaskScheduler(workflow)
+scheduler.run()

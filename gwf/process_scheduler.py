@@ -1,14 +1,14 @@
 import time
 
 
-class TaskScheduler(object):
+class ProcessScheduler(object):
     EVENT_NAMES = ['before', 'started', 'done']
 
     def __init__(self):
         self.processes = {}
         self.stopped = False
         self.listeners = {event_name: []
-                          for event_name in TaskScheduler.EVENT_NAMES}
+                          for event_name in ProcessScheduler.EVENT_NAMES}
 
     def _notify_before(self, identifier):
         for listener in self.listeners['before']:
@@ -46,6 +46,6 @@ class TaskScheduler(object):
         return identifier in self.processes
 
     def on(self, event_name, event_handler):
-        if event_name not in TaskScheduler.EVENT_NAMES:
+        if event_name not in ProcessScheduler.EVENT_NAMES:
             raise Exception('invalid event identifier: {0}'.format(event_name))
         self.listeners[event_name].append(event_handler)
