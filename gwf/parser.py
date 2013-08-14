@@ -42,6 +42,9 @@ def parse_target(target_code, working_dir):
                 files = line.split()[1:]
                 output.extend(files)
 
+            elif line.startswith(':checkpoint'):
+                flags.append('checkpoint')
+
             elif line.startswith(':pbs'):
                 options = line.split()[1:]
                 pbs.append(' '.join(options))
