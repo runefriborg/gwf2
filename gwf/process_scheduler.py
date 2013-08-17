@@ -1,3 +1,4 @@
+import os
 import time
 
 
@@ -37,7 +38,10 @@ class ProcessScheduler(object):
                 if process.poll() is not None:
                     self._notify_done(identifier, process.returncode)
                     del self.processes[identifier]
-            time.sleep(1)
+            try:
+                os.waitpid(-1, 0)
+            except OSError:
+                time.sleep(5)
 
     def stop(self):
         self.stopped = True
