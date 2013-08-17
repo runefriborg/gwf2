@@ -94,7 +94,7 @@ class TaskScheduler(object):
         task.host = host
 
         logging.debug('making destination directory %s on host %s' %
-                      (task.local_wd, self.host))
+                      (task.local_wd, task.host))
         remote('mkdir -p {0}'.format(task.local_wd), task.host)
 
         process = RemoteProcess(task.code.strip(),
