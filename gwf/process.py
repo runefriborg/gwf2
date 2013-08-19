@@ -74,6 +74,7 @@ class RemoteProcess(LocalProcess):
         ssh_command = RemoteProcess.SSH_TEMPLATE.format(command=command,
                                                         host=host,
                                                         **kwargs)
+        del kwargs['cwd']
         super(RemoteProcess, self).__init__(ssh_command, *args, **kwargs)
 
 
