@@ -150,13 +150,11 @@ class TaskScheduler(object):
         self.schedule_tasks()
 
     def cleanup(self, task):
-        # figure out where the task was executed
-        host = task.host
-
-        # delete the task directory on the host
-        logging.debug('deleting directory %s on host %s' %
-                      (task.local_wd, host))
-        remote('rm -rf {0}'.format(task.local_wd), host)
+        if task.host:
+            # delete the task directory on the host
+            logging.debug('deleting directory %s on host %s' %
+                          (task.local_wd, task.host))
+            remote('rm -rf {0}'.format(task.local_wd), task.host)
 
     def on_job_started(self, task):
         self.running.append(task)
