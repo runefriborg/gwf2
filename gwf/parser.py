@@ -30,7 +30,6 @@ def parse_target(target_code, working_dir):
     cores = 1
     memory = 1
     duration = 1
-    pbs = []
     flags = []
 
     for i in xrange(1, len(lines)):
@@ -53,9 +52,6 @@ def parse_target(target_code, working_dir):
 
             elif line.startswith(':memory'):
                 memory = int(line.split()[1:])
-
-            elif line.startswith(':pbs'):
-                print >> os.stderr, ":pbs options have been replaced with :cores and :memory -- your settings will be ignored"
 
             elif line.startswith(':dummy'):
                 flags.append('dummy')
