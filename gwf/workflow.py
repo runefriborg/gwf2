@@ -377,7 +377,6 @@ class Target(ExecutableTask):
                  output,
                  cores,
                  memory,
-                 duration,
                  flags,
                  code,
                  wd):

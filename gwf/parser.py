@@ -54,9 +54,6 @@ def parse_target(target_code, working_dir):
             elif line.startswith(':memory'):
                 memory = int(line.split()[1:])
 
-            elif line.startswith(':duration'):
-                duration = int(line.split()[1:])
-
             elif line.startswith(':pbs'):
                 print >> os.stderr, ":pbs options have been replaced with :cores and :memory -- your settings will be ignored"
 
@@ -78,7 +75,6 @@ def parse_target(target_code, working_dir):
                   output,
                   cores,
                   memory,
-                  duration,
                   flags,
                   code,
                   working_dir)
