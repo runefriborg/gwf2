@@ -27,6 +27,9 @@ def parse_target(target_code, working_dir):
 
     input = []
     output = []
+    cores = 1
+    memory = 1
+    duration = 1
     pbs = []
     flags = []
 
@@ -45,9 +48,17 @@ def parse_target(target_code, working_dir):
             elif line.startswith(':checkpoint'):
                 flags.append('checkpoint')
 
+            elif line.startswith(':cores'):
+                cores = int(line.split()[1:])
+
+            elif line.startswith(':memory'):
+                memory = int(line.split()[1:])
+
+            elif line.startswith(':duration'):
+                duration = int(line.split()[1:])
+
             elif line.startswith(':pbs'):
-                options = line.split()[1:]
-                pbs.append(' '.join(options))
+                print >> os.stderr, ":pbs options have been replaced with :cores and :memory -- your settings will be ignored"
 
             elif line.startswith(':dummy'):
                 flags.append('dummy')
@@ -62,7 +73,7 @@ def parse_target(target_code, working_dir):
 
     code = '\n'.join(lines[i:])
 
-    return Target(name, input, output, pbs, flags, code, working_dir)
+    return Target(name, input, output, cores, memory, duration, flags, code, working_dir)
 
 
 def parse_template(template_code, working_dir):

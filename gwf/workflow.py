@@ -371,12 +371,22 @@ class Target(ExecutableTask):
 
     '''Class handling targets. Stores the info for executing them.'''
 
-    def __init__(self, name, input, output, pbs_options, flags, code, wd):
+    def __init__(self,
+                 name,
+                 input,
+                 output,
+                 cores,
+                 memory,
+                 duration,
+                 flags,
+                 code,
+                 wd):
         # passing None as dependencies, 'cause Workflow will fill it in
         Task.__init__(self, name, None, wd)
         self.input = input
         self.output = output
-        self.pbs_options = pbs_options
+        self.cores = cores
+        self.memory = memory
         self.flags = flags
         self.code = code
         self.wd = wd
@@ -534,10 +544,6 @@ class Target(ExecutableTask):
     @property
     def local_wd(self):
         return os.path.join(GWF_SCRATCH, PBS_JOB_ID, self.name)
-
-    @property
-    def cores(self):
-        return 4
 
     @property
     def checkpoint(self):
