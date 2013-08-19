@@ -89,8 +89,8 @@ class TaskScheduler(object):
                     return
 
         # schedule the task
-        logging.debug("running task=%s cwd=%s code='%s'",
-                      task.name, task.local_wd, task.code.strip())
+        logging.debug("running task=%s cores=%s cwd=%s code='%s'",
+                      task.name, task.cores, task.local_wd, task.code.strip())
 
         task.host = self.get_available_node(task.cores)
 
