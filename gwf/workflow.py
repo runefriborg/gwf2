@@ -80,7 +80,7 @@ if not os.path.exists(GWF_SCRATCH):
 # TEMPLATES
 
 
-class Template:
+class Template(object):
 
     def __init__(self, name, wd, parameters, template):
         self.name = name
@@ -98,7 +98,7 @@ class Template:
                                    # for printing output when testing...
 
 
-class TemplateTarget:
+class TemplateTarget(object):
 
     def __init__(self, name, wd, template, parameter_assignments):
         self.name = name
@@ -179,7 +179,7 @@ class TemplateTarget:
 # VARIABLES LIST AND SUCH...
 
 
-class List:
+class List(object):
 
     def __init__(self, name, elements):
         self.name = name

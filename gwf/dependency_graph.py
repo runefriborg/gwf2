@@ -1,7 +1,7 @@
 '''Graph for dependency relationships of targets.'''
 
 
-class Node:
+class Node(object):
 
     '''A node in the dependencies DAG.'''
 
@@ -16,7 +16,7 @@ class Node:
             any(dep.should_run for _, dep in dependencies)
 
 
-class DependencyGraph:
+class DependencyGraph(object):
 
     '''A complete dependency graph, with code for scheduling a workflow.'''
 
