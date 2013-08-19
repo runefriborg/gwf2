@@ -87,18 +87,17 @@ class TaskScheduler(object):
         logging.debug("running task=%s cwd=%s code='%s'",
                       task.name, task.local_wd, task.code.strip())
 
-        host = self.get_available_node(task.cores)
+        task.host = self.get_available_node(task.cores)
 
         # decrease the number of cores that the chosen node has available
-        self.nodes[host] -= task.cores
-        task.host = host
+        self.nodes[task.host] -= task.cores
 
         logging.debug('making destination directory %s on host %s' %
                       (task.local_wd, task.host))
         remote('mkdir -p {0}'.format(task.local_wd), task.host)
 
         process = RemoteProcess(task.code.strip(),
-                                host,
+                                task.host,
                                 stderr=subprocess.STDOUT,
                                 cwd=task.local_wd)
 
