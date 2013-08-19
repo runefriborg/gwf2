@@ -8,6 +8,7 @@ import re
 import string
 import shutil
 import logging
+import platform
 from exceptions import NotImplementedError
 
 import parser  # need this to re-parse instantiated templates
@@ -51,7 +52,6 @@ if 'PBS_JOB_ID' not in os.environ and \
     os.environ['PBS_JOBID'] = str(time.clock())[2:12] + '.in'
 
     # fake a pbs node file
-    import platform
     import multiprocessing
     cores = multiprocessing.cpu_count()
 
