@@ -47,10 +47,10 @@ def parse_target(target_code, working_dir):
                 flags.append('checkpoint')
 
             elif line.startswith(':cores'):
-                cores = int(line.split()[1:])
+                cores = int(line.split()[1])
 
             elif line.startswith(':memory'):
-                memory = int(line.split()[1:])
+                memory = int(line.split()[1])
 
             elif line.startswith(':dummy'):
                 flags.append('dummy')
