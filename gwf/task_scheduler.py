@@ -54,8 +54,6 @@ class TaskScheduler(object):
         self.scheduler.on('done', self.on_job_done)
 
         # Now, schedule everything that can be scheduled...
-        # NOTE: The copy is IMPORTANT since we modify missing
-        #       during scheduling.
         self.schedule_tasks()
         self.scheduler.run()
 
@@ -63,6 +61,9 @@ class TaskScheduler(object):
         '''Schedule all missing tasks.'''
         if not self.missing:
             self.scheduler.stop()
+
+        # NOTE: The copy is IMPORTANT since we modify missing
+        #       during scheduling.
         for task in copy(self.missing):
             self.schedule_task(task)
 
