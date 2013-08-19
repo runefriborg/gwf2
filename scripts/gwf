@@ -31,7 +31,7 @@ args = parser.parse_args()
 template = ' '.join(['qsub',
                     '-N {name}',
                     '-q {queue_name}',
-                    '-l nodes={max_nodes}',
+                    '-l nodes={max_nodes}:ppn=16',
                     '-l walltime={walltime}'])
 
 process = subprocess.Popen(template.format(**vars(args)),
