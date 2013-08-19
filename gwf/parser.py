@@ -73,7 +73,15 @@ def parse_target(target_code, working_dir):
 
     code = '\n'.join(lines[i:])
 
-    return Target(name, input, output, cores, memory, duration, flags, code, working_dir)
+    return Target(name,
+                  input,
+                  output,
+                  cores,
+                  memory,
+                  duration,
+                  flags,
+                  code,
+                  working_dir)
 
 
 def parse_template(template_code, working_dir):
