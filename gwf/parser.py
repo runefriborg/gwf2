@@ -29,7 +29,6 @@ def parse_target(target_code, working_dir):
     output = []
     cores = 1
     memory = 1
-    duration = 1
     flags = []
 
     for i in xrange(1, len(lines)):
