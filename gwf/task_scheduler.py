@@ -29,6 +29,11 @@ class TaskScheduler(object):
                     self.nodes[node_name] = 0
                 self.nodes[node_name] += 1
 
+        # Print available nodes.
+        logging.debug('available nodes:')
+        for node, cores in self.nodes.iteritems():
+            logging.debug('%s %s' % (node, cores))
+
         # Compute the schedule and...
         target = workflow.targets[workflow.target_name]
         self.schedule, self.scheduled_tasks = \
