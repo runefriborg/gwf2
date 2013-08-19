@@ -5,7 +5,7 @@ import argparse
 import subprocess
 
 GWF_DEFAULT_MAX_NODES = int(os.getenv('GWF_DEFAULT_MAX_NODES', '2'))
-GWF_DEFAULT_WALLTIME = os.getenv('GWF_DEFAULT_WALLTIME', '740:0:0')
+GWF_DEFAULT_WALLTIME = os.getenv('GWF_DEFAULT_WALLTIME', '48:0:0')
 GWF_DEFAULT_QUEUE = os.getenv('GWF_DEFAULT_QUEUE', 'normal')
 
 parser = argparse.ArgumentParser(description='Submit a workflow to the grid.')
