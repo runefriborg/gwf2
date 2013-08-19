@@ -497,24 +497,17 @@ class Target(ExecutableTask):
                                   src_path)
                     os.exit(1)
 
-            # if the source host is the same as the destination host, we won't copy
-            # any files, but just make a hardlink to the source file.
-            if src_host == dst_host:
-                logging.debug('making destination directory %s on host %s' %
-                              (os.path.dirname(dst_path), dst_host))
-                remote('mkdir -p {0}'.format(os.path.dirname(dst_path)),
-                       dst_host)
+            logging.debug('making destination directory %s on host %s' %
+                          (os.path.dirname(dst_path), dst_host))
+            remote('mkdir -p {0}'.format(os.path.dirname(dst_path)), dst_host)
 
+            # if the source host is the same as the destination host, we won't
+            # copy any files, but just make a hardlink to the source file.
+            if src_host == dst_host:
                 logging.debug('making hardlink from %s to %s on %s' %
                               (src_path, dst_path, src_host))
                 remote('ln {0} {1}'.format(src_path, dst_path), src_host)
             else:
-                # first create the destination directory on the destination node.
-                logging.debug('making destination directory %s on host %s' %
-                              (os.path.dirname(dst_path), dst_host))
-                remote('mkdir -p {0}'.format(os.path.dirname(dst_path)),
-                       dst_host)
-
                 command = 'scp {0}:{1} {2}:{3}'.format(src_host,
                                                        src_path,
                                                        dst_host,
