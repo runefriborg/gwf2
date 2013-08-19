@@ -21,9 +21,9 @@ def setup():
 
 @task
 def test_workflow_gwf():
-    run('qx --no-scratch -c 16 "~/.local/bin/gwf -f example/workflow.gwf SortBAM"')
+    run('~/.local/bin/gwf -n RealWorkflow -w 0:10:0 -f example/workflow.gwf SortBAM')
 
 
 @task
 def test_very_simple_gwf():
-    run('qx --no-scratch -c 16 "~/.local/bin/gwf -f example/very_simple.gwf TargetB"')
+    run('~/.local/bin/gwf -n VerySimple -w 0:10:0 -f example/very_simple.gwf TargetB')

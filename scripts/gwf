@@ -1,33 +1,41 @@
-#!/Users/mailund/anaconda/bin/python
+#!/usr/bin/env python
 
-import sys
+import os
 import argparse
+import subprocess
 
-from gwf.parser import parse
-from gwf.task_scheduler import TaskScheduler
+GWF_DEFAULT_MAX_NODES = int(os.getenv('GWF_DEFAULT_MAX_NODES', '2'))
+GWF_DEFAULT_WALLTIME = os.getenv('GWF_DEFAULT_WALLTIME', '740:0:0')
+GWF_DEFAULT_QUEUE = os.getenv('GWF_DEFAULT_QUEUE', 'normal')
 
 parser = argparse.ArgumentParser(description='Submit a workflow to the grid.')
 
+parser.add_argument('-n', '--name',
+                    help='name of the job.')
+parser.add_argument('-m', '--max-nodes', type=int,
+                    default=GWF_DEFAULT_MAX_NODES,
+                    help='the maximum number of nodes to use at any time.')
+parser.add_argument('-w', '--walltime', default=GWF_DEFAULT_WALLTIME,
+                    help='duration of the entire pipeline in hours.')
+parser.add_argument('-q', '--queue-name', default=GWF_DEFAULT_QUEUE,
+                    help='name of the queue to run the workflow in')
+
 parser.add_argument('-f', '--file',
                     default='workflow.gwf', dest='workflow_file',
-                    help='Workflow file if not the default (workflow.gwf).')
-parser.add_argument('-d', '--dry-run', default=False, action='store_true',
-                    help='The submit script will be printed but not executed.')
-parser.add_argument('-l', '--local', default=False, action='store_true',
-                    help='Run the scripts locally. Mostly useful for debugging'
-                    'your workflows.')
-
-parser.add_argument('target', nargs=1,
-                    help='The target to process.')
+                    help='workflow file if not the default (workflow.gwf).')
+parser.add_argument('target',
+                    help='the target to process.')
 
 args = parser.parse_args()
 
-target = args.target[0]
+template = ' '.join(['qsub',
+                    '-N {name}',
+                    '-q {queue_name}',
+                    '-l nodes={max_nodes}',
+                    '-l walltime={walltime}'])
 
-workflow = parse(args.workflow_file, target)
-if target not in workflow.targets:
-    print 'Target %s not found in workflow.' % target
-    sys.exit(2)
+process = subprocess.Popen(template.format(**vars(args)),
+                           shell=True,
+                           stdin=subprocess.PIPE)
 
-scheduler = TaskScheduler(workflow)
-scheduler.run()
+process.communicate('gwf-local -f {workflow_file} {target}'.format(**vars(args)))
