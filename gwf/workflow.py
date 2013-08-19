@@ -403,7 +403,6 @@ class Target(ExecutableTask):
         and output files exist and on their time stamps. Doesn't check
         if upstream targets need to run, only this task; upstream tasks
         are handled by the dependency graph. '''
-        return True
 
         if not self.output:
             self.reason_to_run = \
@@ -490,7 +489,7 @@ class Target(ExecutableTask):
                 src_host = dst_host
                 src_path = in_file
 
-                if local('stat {0}'.format(src_path)) < 0:
+                if local('stat {0} &> /dev/null'.format(src_path)) < 0:
                     logging.error('''output of checkpointed
                                   dependency does not exist at %s --
                                   halting''' %
@@ -503,7 +502,7 @@ class Target(ExecutableTask):
 
             # if the source host is the same as the destination host, we won't
             # copy any files, but just make a hardlink to the source file.
-            if src_host == dst_host:
+            if src_host == dst_host and not dependency.checkpoint:
                 logging.debug('making hardlink from %s to %s on %s' %
                               (src_path, dst_path, src_host))
                 remote('ln {0} {1}'.format(src_path, dst_path), src_host)
