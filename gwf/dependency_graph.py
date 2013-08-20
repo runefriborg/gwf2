@@ -71,16 +71,16 @@ class DependencyGraph(object):
         return self.nodes[name]
 
     def count_references(self):
-        root = self.nodes[self.workflow.target_name]
+        roots = [self.nodes[target_name]
+                 for target_name in self.workflow.target_names]
 
-        def dfs(node):
+        def dfs(node, root):
             if node != root:
                 node.task.references += 1
-
-            # schedule all dependencies before we schedule this task
             for _, dep in node.dependencies:
-                dfs(dep)
-        dfs(root)
+                dfs(dep, root)
+        for root in roots:
+            dfs(root, root)
 
     def schedule(self, target_name):
         '''Linearize the targets to be run.

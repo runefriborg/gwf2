@@ -34,14 +34,24 @@ class TaskScheduler(object):
         for node, cores in self.nodes.iteritems():
             logging.debug('%s %s' % (node, cores))
 
-        # Compute the schedule and...
-        target = workflow.targets[workflow.target_name]
-        self.schedule, self.scheduled_tasks = \
-            self.dependency_graph.schedule(target.name)
+        # For every target name specified by the user, compute its dependencies
+        # and build a list of all tasks which must be run. self.schedule no
+        # longer corresponds to the topological sorting of the tasks, but is
+        # just a list of all tasks that must be run. The scheduler will figure
+        # out the correct order to run them in.
+        targets = [workflow.targets[target_name]
+                   for target_name in workflow.target_names]
+
+        self.schedule, self.scheduled_tasks = [], set()
+        for target in targets:
+            schedule, scheduled_tasks = \
+                self.dependency_graph.schedule(target.name)
+            self.schedule.extend(schedule)
+            self.scheduled_tasks.update(scheduled_tasks)
 
         # Build a list of all the jobs that have not been completed yet.
         # Jobs should be removed from this list when they have completed.
-        self.missing = [job.task for job in self.schedule]
+        self.missing = {job.task for job in self.schedule}
 
         # This list contains all the running jobs.
         self.running = []
@@ -59,8 +69,10 @@ class TaskScheduler(object):
 
     def schedule_tasks(self):
         '''Schedule all missing tasks.'''
-        if not self.missing:
+        if not self.missing and not self.running:
             self.scheduler.stop()
+            assert all(node.task.references == 0 for node in self.schedule), \
+                "all tasks must have zero refs at end of workflow"
 
         # NOTE: The copy is IMPORTANT since we modify missing
         #       during scheduling.
@@ -125,7 +137,7 @@ class TaskScheduler(object):
 
         # if this task is the final task, we should copy its output files to
         # the the workflow directory.
-        if task.name == self.workflow.target_name or task.checkpoint:
+        if task.name in self.workflow.target_names or task.checkpoint:
             task.move_output(self.workflow.working_dir)
 
         # decrease references for all dependencies of this task. Cleanup will

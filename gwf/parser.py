@@ -158,7 +158,7 @@ PARSERS = {'target': parse_target,
            }
 
 
-def parse(fname, target_name):
+def parse(fname, target_names):
     '''Parse up the workflow in "fname".'''
 
     working_dir = os.path.dirname(os.path.realpath(fname))
@@ -215,4 +215,4 @@ def parse(fname, target_name):
                 sys.exit(2)
             targets[cmd.name] = cmd
 
-    return Workflow(lists, templates, targets, template_targets, working_dir, target_name)
+    return Workflow(lists, templates, targets, template_targets, working_dir, target_names)

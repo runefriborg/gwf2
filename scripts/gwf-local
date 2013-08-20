@@ -11,17 +11,17 @@ parser = argparse.ArgumentParser(description='Run a workflow locally.')
 parser.add_argument('-f', '--file',
                     default='workflow.gwf', dest='workflow_file',
                     help='workflow file if not the default (workflow.gwf).')
-parser.add_argument('target', nargs=1,
-                    help='the target to process.')
+parser.add_argument('targets', nargs='+',
+                    help='the target(s) to process.')
 
 args = parser.parse_args()
 
-target = args.target[0]
+workflow = parse(args.workflow_file, args.targets)
 
-workflow = parse(args.workflow_file, target)
-if target not in workflow.targets:
-    print 'Target %s not found in workflow.' % target
-    sys.exit(2)
+for target in args.targets:
+    if target not in workflow.targets:
+        print 'Target %s not found in workflow.' % target
+        sys.exit(2)
 
 scheduler = TaskScheduler(workflow)
 scheduler.run()
