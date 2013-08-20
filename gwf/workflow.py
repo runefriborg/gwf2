@@ -564,13 +564,15 @@ class Workflow(object):
                  targets,
                  template_targets,
                  wd,
-                 target_names):
+                 target_names,
+                 run_all):
         self.lists = lists
         self.templates = templates
         self.targets = targets
         self.template_targets = template_targets
         self.working_dir = wd
         self.target_names = target_names
+        self.run_all = run_all
 
         # handle list transformation...
         for cmd in self.lists.values():

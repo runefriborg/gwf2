@@ -26,6 +26,19 @@ class DependencyGraph(object):
             if name not in self.nodes:
                 self.nodes[name] = self.build_DAG(target)
 
+        # If all end targets should be run, we have to figure out what those
+        # are and set the target names in the workflow.
+        if self.workflow.run_all:
+            candidates = self.nodes.values()
+            for _, node in self.nodes.items():
+                for _, dependency in node.dependencies:
+                    if dependency in candidates \
+                            or not dependency.task.can_execute:
+                        candidates.remove(dependency)
+
+            self.workflow.target_names = \
+                set(node.task.name for node in candidates)
+
         self.count_references()
 
     def add_node(self, task, dependencies):

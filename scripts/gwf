@@ -28,8 +28,14 @@ parser.add_argument('-q', '--queue-name', default=GWF_DEFAULT_QUEUE,
 parser.add_argument('-f', '--file',
                     default='workflow.gwf', dest='workflow_file',
                     help='workflow file if not the default (workflow.gwf).')
-parser.add_argument('targets', nargs='+', action=SpaceSeparatedListAction,
-                    help='the target(s) to process.')
+
+group = parser.add_mutually_exclusive_group()
+
+group.add_argument('-a', '--all', default=False,
+                   help='run all end targets in the workflow')
+group.add_argument('-t', '--targets', nargs='*',
+                   action=SpaceSeparatedListAction,
+                   help='the target(s) to process.')
 
 args = parser.parse_args()
 
@@ -43,4 +49,8 @@ process = subprocess.Popen(template.format(**vars(args)),
                            shell=True,
                            stdin=subprocess.PIPE)
 
-process.communicate('gwf-local -f {workflow_file} {targets}'.format(**vars(args)))
+command = ' '.join(['gwf-local',
+                    '-f {workflow_file}',
+                    '-a' if args.all else '',
+                    '{targets}'])
+process.communicate(command.format(**vars(args)))

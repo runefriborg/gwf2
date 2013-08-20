@@ -71,8 +71,6 @@ class TaskScheduler(object):
         '''Schedule all missing tasks.'''
         if not self.missing and not self.running:
             self.scheduler.stop()
-            assert all(node.task.references == 0 for node in self.schedule), \
-                "all tasks must have zero refs at end of workflow"
 
         # NOTE: The copy is IMPORTANT since we modify missing
         #       during scheduling.
