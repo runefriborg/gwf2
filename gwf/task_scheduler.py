@@ -113,7 +113,7 @@ class TaskScheduler(object):
         self.missing.remove(task)
 
         # move all input files to local working directory
-        logging.info('fetching dependencies for %s' % task.name)
+        logging.debug('fetching dependencies for %s' % task.name)
         task.get_input()
 
     def on_job_done(self, task, errorcode):
