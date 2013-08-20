@@ -12,8 +12,7 @@ class Node(object):
 
         # The node needs to be run if what it contains needs to be run
         # or any of the upstream nodes need to be run...
-        self.should_run = self.task.should_run or \
-            any(dep.should_run for _, dep in dependencies)
+        self.should_run = self.task.should_run
 
 
 class DependencyGraph(object):
@@ -101,22 +100,17 @@ class DependencyGraph(object):
 
         def dfs(node):
             if node in processed:
-                # we have already processed the node, and
-                # if we should run the target name is scheduled
-                # otherwise it isn't.
-                return node.name in scheduled
-
-            # schedule all dependencies before we schedule this task
-            for _, dep in node.dependencies:
-                dfs(dep)
+                return
 
             # If this task needs to run, then schedule it
             if node.should_run:
+                # schedule all dependencies before we schedule this task
+                for _, dep in node.dependencies:
+                    dfs(dep)
                 schedule.append(node)
                 scheduled.add(node.name)
 
             processed.add(node)
 
         dfs(root)
-
         return schedule, scheduled

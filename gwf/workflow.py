@@ -416,6 +416,9 @@ class Target(ExecutableTask):
                     'Output file %s is missing' % outf
                 return True
 
+        if self.checkpoint:
+            return False
+
         for inf in self.input:
             if not _file_exists(_make_absolute_path(self.working_dir, inf)):
                 self.reason_to_run = \
