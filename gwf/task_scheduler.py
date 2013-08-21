@@ -42,14 +42,16 @@ class TaskScheduler(object):
         targets = [workflow.targets[target_name]
                    for target_name in workflow.target_names]
 
-        self.schedule = []
+        self.schedule = set()
         for target in targets:
             schedule = self.dependency_graph.schedule(target.name)
-            self.schedule.extend(schedule)
+            self.schedule.update(schedule)
+        logging.debug('schedule: %s', ', '.join(
+                      task.name for task in self.schedule))
 
         # Build a list of all the jobs that have not been completed yet.
         # Jobs should be removed from this list when they have completed.
-        self.missing = {job.task for job in self.schedule}
+        self.missing = copy(self.schedule)
 
         # This list contains all the running jobs.
         self.running = []

@@ -318,6 +318,10 @@ class SystemFile(Task):
         return _file_exists(_make_absolute_path(self.working_dir, self.name))
 
     @property
+    def youngest_time(self):
+        return _get_file_timestamp(_make_absolute_path(self.working_dir, self.name))
+
+    oldest_time = youngest_time
 
     @property
     def execution_error(self):
@@ -377,7 +381,6 @@ class Target(ExecutableTask):
         self.memory = memory
         self.flags = flags
         self.code = code
-        self.wd = wd
         self.host = None
 
         if 'dummy' in self.flags and len(self.output) > 0:
@@ -385,9 +388,6 @@ class Target(ExecutableTask):
             print 'Dummy targets will never be run so cannot produce output!'
             sys.exit(2)
         self.is_dummy = 'dummy' in self.flags
-
-    @property
-
 
     def get_input(self):
         for in_file, dependency in self.dependencies:

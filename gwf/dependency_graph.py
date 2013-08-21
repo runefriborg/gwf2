@@ -1,5 +1,50 @@
 '''Graph for dependency relationships of targets.'''
 
+import os
+import os.path
+import time
+
+
+def _file_exists(fname):
+    return os.path.exists(fname)
+
+
+def _get_file_timestamp(fname):
+    try:
+        return os.path.getmtime(fname)
+    except:
+        return time.time()
+
+
+def age_of_newest_file(files):
+    youngest_output_time = 0
+    for filename in files:
+        if not _file_exists(filename):
+            return 0
+        output_time = _get_file_timestamp(filename)
+        if output_time > youngest_output_time:
+            youngest_output_time = output_time
+    return youngest_output_time
+
+
+def age_of_oldest_file(files):
+    oldest_output_time = time.time()
+    for filename in files:
+        if not _file_exists(filename):
+            time.time()
+        output_time = _get_file_timestamp(filename)
+        if output_time < oldest_output_time:
+            oldest_output_time = output_time
+    return oldest_output_time
+
+
+def _make_absolute_path(working_dir, fname):
+    if os.path.isabs(fname):
+        abspath = fname
+    else:
+        abspath = os.path.join(working_dir, fname)
+    return os.path.normpath(abspath)
+
 
 class Node(object):
 
@@ -69,7 +114,6 @@ class DependencyGraph(object):
         def dfs(task):
             if task.name in self.nodes:
                 return self.get_node(task.name)
-
             else:
                 deps = [(fname, dfs(dep)) for fname, dep in task.dependencies]
                 return self.add_node(task, deps)
@@ -105,22 +149,43 @@ class DependencyGraph(object):
         '''
 
         root = self.nodes[target_name]
+        end_targets = self.workflow.target_names
+
+        def files_exist(files):
+            return all(map(_file_exists, files))
+
+        def is_oldest(task):
+            age_of_oldest_output_file = age_of_oldest_file(task.output)
+
+            def dfs(root):
+                if root.checkpoint or root.name in end_targets:
+                    if not files_exist(root.output):
+                        return False
+                    newest_of_all_dependencies = \
+                        max(age_of_newest_file(dependency.output)
+                            for _, dependency in root.dependencies)
+                    return newest_of_all_dependencies < age_of_oldest_output_file
+                return all(dfs(dependency)
+                           for _, dependency in root.dependencies)
+
+            return dfs(task)
 
         processed = set()
         schedule = []
 
         def dfs(node):
-            if node in processed:
+            if node in processed or not node.task.can_execute:
                 return
 
-            # If this task needs to run, then schedule it
+            if node.task.checkpoint or node.task.name in end_targets:
+                if files_exist(node.task.output) and is_oldest(node.task):
+                    return
 
+            schedule.append(node.task)
+            processed.add(node)
 
-            # schedule all dependencies before we schedule this task
             for _, dep in node.dependencies:
                 dfs(dep)
-            schedule.append(node)
-            processed.add(node)
 
         dfs(root)
         return schedule
