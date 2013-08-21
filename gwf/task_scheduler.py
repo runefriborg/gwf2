@@ -42,12 +42,10 @@ class TaskScheduler(object):
         targets = [workflow.targets[target_name]
                    for target_name in workflow.target_names]
 
-        self.schedule, self.scheduled_tasks = [], set()
+        self.schedule = []
         for target in targets:
-            schedule, scheduled_tasks = \
-                self.dependency_graph.schedule(target.name)
+            schedule = self.dependency_graph.schedule(target.name)
             self.schedule.extend(schedule)
-            self.scheduled_tasks.update(scheduled_tasks)
 
         # Build a list of all the jobs that have not been completed yet.
         # Jobs should be removed from this list when they have completed.

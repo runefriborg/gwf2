@@ -111,7 +111,6 @@ class DependencyGraph(object):
         root = self.nodes[target_name]
 
         processed = set()
-        scheduled = set()
         schedule = []
 
         def dfs(node):
@@ -119,14 +118,13 @@ class DependencyGraph(object):
                 return
 
             # If this task needs to run, then schedule it
-            if node.should_run:
-                # schedule all dependencies before we schedule this task
-                for _, dep in node.dependencies:
-                    dfs(dep)
-                schedule.append(node)
-                scheduled.add(node.name)
 
+
+            # schedule all dependencies before we schedule this task
+            for _, dep in node.dependencies:
+                dfs(dep)
+            schedule.append(node)
             processed.add(node)
 
         dfs(root)
-        return schedule, scheduled
+        return schedule
