@@ -10,10 +10,6 @@ class Node(object):
         self.task = task
         self.dependencies = dependencies
 
-        # The node needs to be run if what it contains needs to be run
-        # or any of the upstream nodes need to be run...
-        self.should_run = self.task.should_run
-
 
 class DependencyGraph(object):
 

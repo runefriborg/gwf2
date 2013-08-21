@@ -274,13 +274,6 @@ class Task(object):
             "task cannot have negative number of references"
 
     @property
-    def should_run(self):
-        '''Test if this task needs to be run. Used when scheduling a
-        dependency graph, but the specifics of when and how a task should
-        run depends on the subclass'''
-        raise NotImplementedError()
-
-    @property
     def can_execute(self):
         '''Flag used to indicate that a task can be executed.
 
@@ -325,10 +318,6 @@ class SystemFile(Task):
         return _file_exists(_make_absolute_path(self.working_dir, self.name))
 
     @property
-    def should_run(self):
-        '''We should never actually run a system file, but we say yes when
-        the file is missing so this is displayed in output.'''
-        return not self.file_exists
 
     @property
     def execution_error(self):
@@ -398,81 +387,7 @@ class Target(ExecutableTask):
         self.is_dummy = 'dummy' in self.flags
 
     @property
-    def should_run(self):
-        '''Test if this target needs to be run based on whether input
-        and output files exist and on their time stamps. Doesn't check
-        if upstream targets need to run, only this task; upstream tasks
-        are handled by the dependency graph. '''
 
-        if not self.output:
-            self.reason_to_run = \
-                'Sinks (targets without output) should always run'
-            return True  # If we don't provide output, assume we always
-                        # need to run.
-
-        for outf in self.output:
-            if not _file_exists(_make_absolute_path(self.working_dir, outf)):
-                self.reason_to_run = \
-                    'Output file %s is missing' % outf
-                return True
-
-        if self.checkpoint:
-            return False
-
-        for inf in self.input:
-            if not _file_exists(_make_absolute_path(self.working_dir, inf)):
-                self.reason_to_run = \
-                    'Input file %s is missing' % outf
-                return True
-
-        # If no file is missing, it comes down to the time stamps. If we
-        # only have output and no input, we assume the output is up to
-        # date. Touching files and adding input can fix this behaviour
-        # from the user side but if we have a program that just creates
-        # files we don't want to run it whenever someone needs that
-        # output just because we don't have time stamped input.
-
-        if not self.input:
-            self.reason_to_run = "We shouldn't run"
-            return False
-
-        # if we have both input and output files, check time stamps
-
-        youngest_in_timestamp = None
-        youngest_in_filename = None
-        for inf in self.input:
-            timestamp = _get_file_timestamp(
-                _make_absolute_path(self.working_dir, inf))
-            if youngest_in_timestamp is None \
-                    or youngest_in_timestamp < timestamp:
-                youngest_in_filename = inf
-                youngest_in_timestamp = timestamp
-        assert youngest_in_timestamp is not None
-
-        oldest_out_timestamp = None
-        oldest_out_filename = None
-        for outf in self.output:
-            timestamp = _get_file_timestamp(
-                _make_absolute_path(self.working_dir, outf))
-            if oldest_out_timestamp is None \
-                    or oldest_out_timestamp > timestamp:
-                oldest_out_filename = outf
-                oldest_out_timestamp = timestamp
-        assert oldest_out_timestamp is not None
-
-        # The youngest in should be older than the oldest out
-        if youngest_in_timestamp >= oldest_out_timestamp:
-            # we have a younger in file than an outfile
-            self.reason_to_run = 'Infile %s is younger than outfile %s' %\
-                (youngest_in_filename, oldest_out_filename)
-            return True
-        else:
-            self.reason_to_run = 'Youngest infile %s is older than '\
-                                 'the oldest outfile %s' % \
-                (youngest_in_filename, oldest_out_filename)
-            return False
-
-        assert False, "We shouldn't get here"
 
     def get_input(self):
         for in_file, dependency in self.dependencies:
