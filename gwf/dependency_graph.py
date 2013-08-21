@@ -29,17 +29,20 @@ class DependencyGraph(object):
         # If all end targets should be run, we have to figure out what those
         # are and set the target names in the workflow.
         if self.workflow.run_all:
-            candidates = self.nodes.values()
-            for _, node in self.nodes.items():
-                for _, dependency in node.dependencies:
-                    if dependency in candidates \
-                            or not dependency.task.can_execute:
-                        candidates.remove(dependency)
-
             self.workflow.target_names = \
-                set(node.task.name for node in candidates)
+                set(node.task.name for node in self.end_targets())
 
         self.count_references()
+
+    def end_targets(self):
+        '''Find targets which are not depended on by any other target.'''
+        candidates = self.nodes.values()
+        for _, node in self.nodes.items():
+            for _, dependency in node.dependencies:
+                if dependency in candidates \
+                        or not dependency.task.can_execute:
+                    candidates.remove(dependency)
+        return candidates
 
     def add_node(self, task, dependencies):
         '''Create a graph node for a workflow task, assuming that its
