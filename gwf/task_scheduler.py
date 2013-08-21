@@ -83,19 +83,26 @@ class TaskScheduler(object):
         if task.dummy or not task.can_execute:
             return
 
-        # if all dependencies are done, we may schedule this task.
+        # If all dependencies are done, we may schedule this task.
         for _, dep_task in task.dependencies:
-            if dep_task.can_execute:
-                if dep_task in self.missing:
-                    logging.debug(
-                        'task not scheduled - dependency %s missing',
-                        dep_task.name)
-                    return
-                if dep_task in self.running:
-                    logging.debug(
-                        'task not scheduled - dependency %s running',
-                        dep_task.name)
-                    return
+            # If the dependency is not executable, we will not wait for it
+            # to complete. Also, we will only wait for the dependency if it was
+            # actually scheduled. If it wasn't scheduled, its output files
+            # already exist and thus it should never be executed.
+            if dep_task.can_execute and dep_task in self.schedule:
+                if dep_task in self.schedule:
+                    # if the dependency is either missing or still running,
+                    # this task cannot be scheduled.
+                    if dep_task in self.missing:
+                        logging.debug(
+                            'task not scheduled - dependency %s missing',
+                            dep_task.name)
+                        return
+                    if dep_task in self.running:
+                        logging.debug(
+                            'task not scheduled - dependency %s running',
+                            dep_task.name)
+                        return
 
         # schedule the task
         logging.debug("running task=%s cores=%s cwd=%s code='%s'",
