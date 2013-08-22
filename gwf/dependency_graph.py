@@ -19,8 +19,6 @@ def _get_file_timestamp(fname):
 def age_of_newest_file(files):
     youngest_output_time = 0
     for filename in files:
-        if not _file_exists(filename):
-            return 0
         output_time = _get_file_timestamp(filename)
         if output_time > youngest_output_time:
             youngest_output_time = output_time
@@ -30,8 +28,6 @@ def age_of_newest_file(files):
 def age_of_oldest_file(files):
     oldest_output_time = time.time()
     for filename in files:
-        if not _file_exists(filename):
-            time.time()
         output_time = _get_file_timestamp(filename)
         if output_time < oldest_output_time:
             oldest_output_time = output_time
