@@ -26,10 +26,10 @@ echo "GREATMONKEY" | cat - head.ponAbe2.fa.gz > greatMonkey.ponAbe2.fa.gz
 echo "GREATAPEGREATAPE" | cat - greatApe.ponAbe2.fa.gz > greatApeDouble.ponAbe2.fa.gz
 
 @target TargetE
-:input greatMonkey.ponAbe2.fa.gz head.ponAbe2.fa.gz
+:input greatMonkey.ponAbe2.fa.gz
 :output greatMonkeyDouble.ponAbe2.fa.gz
 
-echo "GREATMONKEYGREATMONKEY" | cat - head.ponAbe2.fa.gz > extended.ponAbe2.fa.gz
+echo "GREATMONKEYGREATMONKEY" | cat - greatMonkey.ponAbe2.fa.gz > greatMonkeyDouble.ponAbe2.fa.gz
 
 @target TargetF
 :input greatApeDouble.ponAbe2.fa.gz
