@@ -161,10 +161,8 @@ class DependencyGraph(object):
                 if root.checkpoint or root.name in end_targets:
                     if not files_exist(root.output):
                         return False
-                    newest_of_all_dependencies = \
-                        max(age_of_newest_file(dependency.output)
-                            for _, dependency in root.dependencies)
-                    return newest_of_all_dependencies < age_of_oldest_output_file
+                    if age_of_newest_file(root.output) > age_of_oldest_output_file:
+                        return False
                 return all(dfs(dependency)
                            for _, dependency in root.dependencies)
 
