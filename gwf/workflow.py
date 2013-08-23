@@ -474,6 +474,7 @@ class Workflow(object):
     '''Class representing a workflow.'''
 
     def __init__(self,
+                 path,
                  lists,
                  templates,
                  targets,
@@ -481,6 +482,7 @@ class Workflow(object):
                  wd,
                  target_names,
                  run_all):
+        self.path = path
         self.lists = lists
         self.templates = templates
         self.targets = targets
