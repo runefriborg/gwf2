@@ -3,7 +3,6 @@
 import sys
 import os
 import os.path
-import time
 import re
 import string
 import shutil
@@ -14,8 +13,7 @@ from exceptions import NotImplementedError
 import parser  # need this to re-parse instantiated templates
 
 from process import remote, local
-
-logging.basicConfig(level=logging.DEBUG)
+from environment import env
 
 
 def _escape_file_name(fname):
@@ -42,40 +40,6 @@ def _make_absolute_path(working_dir, fname):
     else:
         abspath = os.path.join(working_dir, fname)
     return os.path.normpath(abspath)
-
-if 'PBS_JOB_ID' not in os.environ and \
-    'PBS_NODEFILE' not in os.environ and \
-        'GWF_SCRATCH' not in os.environ:
-    logging.info('running in local mode')
-
-    # fake a pbs job id
-    os.environ['PBS_JOBID'] = str(time.clock())[2:12] + '.in'
-
-    # fake a pbs node file
-    import multiprocessing
-    cores = multiprocessing.cpu_count()
-
-    with open('local_nodefile.tmp', 'w') as fp:
-        for core in range(cores):
-            print >> fp, platform.node()
-
-    os.environ['PBS_NODEFILE'] = 'local_nodefile.tmp'
-
-    # in local mode, we need something that corresponds to the scratch
-    # directory, so we make one in the user's home directory, unless
-    # something else is stated by the user.
-    os.environ['GWF_SCRATCH'] = os.path.join(
-        os.path.expanduser('~'), 'gwf-scratch')
-    logging.info(
-        'using fake scratch directory located in %s',
-        os.environ['GWF_SCRATCH'])
-
-PBS_JOB_ID = os.environ['PBS_JOBID']
-PBS_NODEFILE = os.environ['PBS_NODEFILE']
-GWF_SCRATCH = os.environ['GWF_SCRATCH']
-
-if not os.path.exists(GWF_SCRATCH):
-    os.mkdir(GWF_SCRATCH)
 
 # TEMPLATES
 
@@ -452,7 +416,7 @@ class Target(ExecutableTask):
 
     @property
     def local_wd(self):
-        return os.path.join(GWF_SCRATCH, PBS_JOB_ID, self.name)
+        return os.path.join(env.scratch_dir, env.job_id, self.name)
 
     @property
     def checkpoint(self):
