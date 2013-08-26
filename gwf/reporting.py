@@ -53,7 +53,9 @@ class FileReporter(Reporter):
             raise Exception('event %s not supported.')
 
         with open(self.tmp_file, 'a') as f:
-            json.dump((time.time(), event, data), f)
+            json.dump((time.time(), event, data), f,
+                      separators=(',', ':'))
+            f.write('\n')
 
     def finalize(self):
         os.rename(self.tmp_file, self.final_file)
