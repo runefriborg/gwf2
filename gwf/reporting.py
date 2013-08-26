@@ -39,9 +39,7 @@ class Reporter(object):
 
 class FileReporter(Reporter):
 
-    def __init__(self, workflow_id, tmp_dir, final_dir):
-        self.workflow_id = workflow_id
-
+    def __init__(self, tmp_dir, final_dir):
         self.tmp_file = os.path.join(tmp_dir, LOG_NAME)
         self.final_file = os.path.join(final_dir, LOG_NAME)
 
@@ -55,7 +53,7 @@ class FileReporter(Reporter):
             raise Exception('event %s not supported.')
 
         with open(self.tmp_file, 'a') as f:
-            json.dump((time.time(), event, self.workflow_id, data), f,
+            json.dump((time.time(), event, data), f,
                       separators=(',', ':'))
 
     def finalize(self):
