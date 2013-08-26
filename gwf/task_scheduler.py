@@ -1,12 +1,15 @@
 import subprocess
 import logging
 
+import reporting
+
 from copy import copy
 
 from dependency_graph import DependencyGraph
 from process_scheduler import ProcessScheduler
 from process import RemoteProcess, remote
-from environment import env
+
+from environment import env, reporter
 
 
 class TaskScheduler(object):
@@ -39,6 +42,11 @@ class TaskScheduler(object):
         # This list contains all the running jobs.
         self.running = []
 
+        reporter.report(reporting.WORKFLOW_STARTED,
+                        file=self.workflow.path,
+                        queued=[task.name for task in self.missing],
+                        nodes=env.nodes.keys())
+
     def run(self):
         # ... then start the scheduler to actually run the jobs.
         self.scheduler = ProcessScheduler()
@@ -54,6 +62,9 @@ class TaskScheduler(object):
         '''Schedule all missing tasks.'''
         if not self.missing and not self.running:
             self.scheduler.stop()
+
+            reporter.report(reporting.WORKFLOW_COMPLETED)
+            reporter.finalize()
 
         # NOTE: The copy is IMPORTANT since we modify missing
         #       during scheduling.
@@ -144,6 +155,7 @@ class TaskScheduler(object):
 
         self.running.remove(task)
 
+        reporter.report(reporting.TASK_COMPLETED, task=task.name)
         logging.info('task done: %s', task.name)
 
         # reschedule now that we know that a task has finished
@@ -158,6 +170,11 @@ class TaskScheduler(object):
 
     def on_job_started(self, task):
         self.running.append(task)
+
+        reporter.report(reporting.TASK_STARTED,
+                        task=task.name,
+                        host=task.host,
+                        working_dir=task.local_wd)
 
     def get_available_node(self, cores_needed):
         for node, cores in env.nodes.iteritems():

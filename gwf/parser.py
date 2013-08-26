@@ -215,4 +215,4 @@ def parse(fname, target_names, run_all):
                 sys.exit(2)
             targets[cmd.name] = cmd
 
-    return Workflow(lists, templates, targets, template_targets, working_dir, target_names, run_all)
+    return Workflow(os.path.realpath(fname), lists, templates, targets, template_targets, working_dir, target_names, run_all)

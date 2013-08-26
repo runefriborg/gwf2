@@ -10,10 +10,11 @@ import logging
 import platform
 from exceptions import NotImplementedError
 
+import reporting
 import parser  # need this to re-parse instantiated templates
 
 from process import remote, local
-from environment import env
+from environment import env, reporter
 
 
 def _escape_file_name(fname):
@@ -297,22 +298,41 @@ class SystemFile(Task):
         return self.working_dir
 
     def get_input(self):
-        for in_file, dependency in self.dependencies:
-            local_wd = self.local_wd
+        for source, dependency in self.dependencies:
+            try:
+                local_wd = self.local_wd
 
-            relative_path = os.path.relpath(in_file, self.wd)
-            base_dir = os.path.join(local_wd,
-                                    os.path.dirname(relative_path))
+                relative_path = os.path.relpath(source, self.wd)
+                base_dir = os.path.join(local_wd,
+                                        os.path.dirname(relative_path))
 
-            if not os.path.exists(base_dir):
-                logging.debug('creating directory structure %s',
-                              os.path.join(local_wd,
-                                           os.path.dirname(relative_path)))
-                os.makedirs(base_dir)
+                if not os.path.exists(base_dir):
+                    logging.debug('creating directory structure %s',
+                                  os.path.join(local_wd,
+                                               os.path.dirname(relative_path)))
+                    os.makedirs(base_dir)
 
-            logging.debug("copying %s to %s",
-                          in_file, os.path.join(local_wd, relative_path))
-            shutil.copyfile(in_file, os.path.join(local_wd, relative_path))
+                logging.debug("copying %s to %s",
+                              source, os.path.join(local_wd, relative_path))
+
+                destination = os.path.join(local_wd, relative_path)
+                reporter.report(reporting.TRANSFER_STARTED,
+                                task=self.name,
+                                source=source,
+                                destination=destination)
+
+                shutil.copyfile(source, destination)
+            except OSError, e:
+                reporter.report(reporting.TRANSFER_FAILED,
+                                task=self.name,
+                                source=source,
+                                destination=destination,
+                                explanation=e.strerror)
+            else:
+                reporter.report(reporting.TRANSFER_COMPLETED,
+                                task=self.name,
+                                source=source,
+                                destination=destination)
 
 
 class ExecutableTask(Task):
@@ -438,6 +458,7 @@ class Workflow(object):
     '''Class representing a workflow.'''
 
     def __init__(self,
+                 path,
                  lists,
                  templates,
                  targets,
@@ -445,6 +466,7 @@ class Workflow(object):
                  wd,
                  target_names,
                  run_all):
+        self.path = path
         self.lists = lists
         self.templates = templates
         self.targets = targets
