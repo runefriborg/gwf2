@@ -11,7 +11,6 @@ bwa index -p ponabe2-bwaidx -a bwtsw ponAbe2.fa.gz
 :input Masala_R1.fastq.gz Masala_R2.fastq.gz
 :input ponabe2-bwaidx.amb ponabe2-bwaidx.ann ponabe2-bwaidx.pac ponabe2-bwaidx.sa ponabe2-bwaidx.bwt
 :output Masala.unsorted.bam
-:cores 16
 
 bwa mem -t 16 ponabe2-bwaidx Masala_R1.fastq.gz Masala_R2.fastq.gz | \
     samtools view -Shb - > Masala.unsorted.bam

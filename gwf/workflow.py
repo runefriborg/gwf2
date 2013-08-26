@@ -3,7 +3,6 @@
 import sys
 import os
 import os.path
-import time
 import re
 import string
 import shutil
@@ -11,11 +10,11 @@ import logging
 import platform
 from exceptions import NotImplementedError
 
+import reporting
 import parser  # need this to re-parse instantiated templates
 
 from process import remote, local
-
-logging.basicConfig(level=logging.DEBUG)
+from environment import env, reporter
 
 
 def _escape_file_name(fname):
@@ -43,39 +42,6 @@ def _make_absolute_path(working_dir, fname):
         abspath = os.path.join(working_dir, fname)
     return os.path.normpath(abspath)
 
-if 'PBS_JOB_ID' not in os.environ and \
-    'PBS_NODEFILE' not in os.environ and \
-        'GWF_SCRATCH' not in os.environ:
-    logging.info('running in local mode')
-
-    # fake a pbs job id
-    os.environ['PBS_JOBID'] = str(time.clock())[2:12] + '.in'
-
-    # fake a pbs node file
-    import multiprocessing
-    cores = multiprocessing.cpu_count()
-
-    with open('local_nodefile.tmp', 'w') as fp:
-        for core in range(cores):
-            print >> fp, platform.node()
-
-    os.environ['PBS_NODEFILE'] = 'local_nodefile.tmp'
-
-    # in local mode, we need something that corresponds to the scratch
-    # directory, so we make one in the user's home directory, unless
-    # something else is stated by the user.
-    os.environ['GWF_SCRATCH'] = os.path.join(
-        os.path.expanduser('~'), 'gwf-scratch')
-    logging.info(
-        'using fake scratch directory located in %s',
-        os.environ['GWF_SCRATCH'])
-
-PBS_JOB_ID = os.environ['PBS_JOBID']
-PBS_NODEFILE = os.environ['PBS_NODEFILE']
-GWF_SCRATCH = os.environ['GWF_SCRATCH']
-
-if not os.path.exists(GWF_SCRATCH):
-    os.mkdir(GWF_SCRATCH)
 
 # TEMPLATES
 
@@ -333,22 +299,41 @@ class SystemFile(Task):
         return self.working_dir
 
     def get_input(self):
-        for in_file, dependency in self.dependencies:
-            local_wd = self.local_wd
+        for source, dependency in self.dependencies:
+            try:
+                local_wd = self.local_wd
 
-            relative_path = os.path.relpath(in_file, self.wd)
-            base_dir = os.path.join(local_wd,
-                                    os.path.dirname(relative_path))
+                relative_path = os.path.relpath(source, self.wd)
+                base_dir = os.path.join(local_wd,
+                                        os.path.dirname(relative_path))
 
-            if not os.path.exists(base_dir):
-                logging.debug('creating directory structure %s',
-                              os.path.join(local_wd,
-                                           os.path.dirname(relative_path)))
-                os.makedirs(base_dir)
+                if not os.path.exists(base_dir):
+                    logging.debug('creating directory structure %s',
+                                  os.path.join(local_wd,
+                                               os.path.dirname(relative_path)))
+                    os.makedirs(base_dir)
 
-            logging.debug("copying %s to %s",
-                          in_file, os.path.join(local_wd, relative_path))
-            shutil.copyfile(in_file, os.path.join(local_wd, relative_path))
+                logging.debug("copying %s to %s",
+                              source, os.path.join(local_wd, relative_path))
+
+                destination = os.path.join(local_wd, relative_path)
+                reporter.report(reporting.TRANSFER_STARTED,
+                                task=self.name,
+                                source=source,
+                                destination=destination)
+
+                shutil.copyfile(source, destination)
+            except OSError, e:
+                reporter.report(reporting.TRANSFER_FAILED,
+                                task=self.name,
+                                source=source,
+                                destination=destination,
+                                explanation=e.strerror)
+            else:
+                reporter.report(reporting.TRANSFER_COMPLETED,
+                                task=self.name,
+                                source=source,
+                                destination=destination)
 
 
 class ExecutableTask(Task):
@@ -452,7 +437,7 @@ class Target(ExecutableTask):
 
     @property
     def local_wd(self):
-        return os.path.join(GWF_SCRATCH, PBS_JOB_ID, self.name)
+        return os.path.join(env.scratch_dir, env.job_id, self.name)
 
     @property
     def checkpoint(self):
