@@ -45,8 +45,12 @@ class TaskScheduler(object):
         # workflow is being run on (mother node being the node on which gwf
         # is run).
         host_file_path = os.path.join(env.config_dir, 'hosts', env.job_id)
+        if not os.path.exists(os.path.join(env.config_dir, 'hosts')):
+            os.makedirs(os.path.join(env.config_dir, 'hosts'))
         with open(host_file_path, 'w') as f:
             f.write(platform.node())
+
+        logging.debug('job lock file written to %s' % host_file_path)
 
         reporter.report(reporting.WORKFLOW_STARTED,
                         file=self.workflow.path,
@@ -180,7 +184,7 @@ class TaskScheduler(object):
                         working_dir=task.local_wd)
 
     def on_workflow_stopped(self):
-        # Move log files from mother node to shared storage and somehow
+        # Move log file from mother node to shared storage and somehow
         # indicate that the workflow logs have been moved (removed entry
         # in some file on shared storage which maps jobs to nodes?)
         reporter.report(reporting.WORKFLOW_COMPLETED)
@@ -188,6 +192,9 @@ class TaskScheduler(object):
 
         # Remove the file which says that the workflow is still running.
         os.remove(os.path.join(env.config_dir, 'hosts', env.job_id))
+
+        logging.debug('removed job lock file from %s' %
+                      os.path.join(env.config_dir, 'hosts', env.job_id))
 
     def get_available_node(self, cores_needed):
         for node, cores in env.nodes.iteritems():
