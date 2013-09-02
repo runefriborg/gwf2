@@ -8,7 +8,6 @@ import reporting
 from copy import copy
 
 from dependency_graph import DependencyGraph
-from process_scheduler import ProcessScheduler
 from process import RemoteProcess, remote
 
 from environment import env
@@ -17,8 +16,9 @@ from reporting import reporter
 
 class TaskScheduler(object):
 
-    def __init__(self, workflow):
+    def __init__(self, workflow, scheduler):
         self.workflow = workflow
+        self.scheduler = scheduler
 
         # build the dependency graph
         self.graph = DependencyGraph(self.workflow)
@@ -55,7 +55,6 @@ class TaskScheduler(object):
 
     def run(self):
         # ... then start the scheduler to actually run the jobs.
-        self.scheduler = ProcessScheduler()
         self.scheduler.on('before', self.on_before_job_started)
         self.scheduler.on('started', self.on_job_started)
         self.scheduler.on('done', self.on_job_done)

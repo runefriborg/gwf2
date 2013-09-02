@@ -5,6 +5,7 @@ import argparse
 
 from gwf.parser import parse
 from gwf.task_scheduler import TaskScheduler
+from gwf.process_scheduler import ProcessScheduler
 
 parser = argparse.ArgumentParser(description='Run a workflow locally.')
 
@@ -28,5 +29,7 @@ for target in args.targets:
         print 'Target %s not found in workflow.' % target
         sys.exit(2)
 
-scheduler = TaskScheduler(workflow)
+process_scheduler = ProcessScheduler()
+
+scheduler = TaskScheduler(workflow, process_scheduler)
 scheduler.run()
