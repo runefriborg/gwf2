@@ -2,6 +2,7 @@ import os
 import os.path
 import json
 import time
+import datetime
 
 from environment import env
 
@@ -54,7 +55,8 @@ class ReportReader(object):
 
         # keeps track of the state of the workflow
         self.workflow = {
-            'completed': None,
+            'completed_at': None,
+            'started_at': None,
             'file': None,
             'queued': [],
             'nodes': [],
@@ -77,15 +79,17 @@ class ReportReader(object):
 
     def feed(self, report):
         timestamp, event, data = report
-        self.handlers[event](timestamp, **data)
+        self.handlers[event](
+            datetime.datetime.fromtimestamp(timestamp), **data)
 
     def _workflow_started(self, timestamp, file, queued, nodes):
         self.workflow['queued'] = queued
         self.workflow['nodes'] = nodes
         self.workflow['file'] = file
+        self.workflow['started_at'] = timestamp
 
     def _workflow_completed(self, timestamp):
-        self.workflow['completed'] = timestamp
+        self.workflow['completed_at'] = timestamp
 
     def _workflow_failed(self, timestamp, explanation):
         self.workflow['failed'] = {
