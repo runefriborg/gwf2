@@ -1,0 +1,8 @@
+import sys
+import pprint
+
+from gwf.reporting import FileReportReader
+
+r = FileReportReader(sys.argv[1])
+pprint.pprint(r.workflow)
+pprint.pprint(r.tasks)
