@@ -10,11 +10,11 @@ import logging
 import platform
 from exceptions import NotImplementedError
 
-import reporting
 import parser  # need this to re-parse instantiated templates
 
 from process import remote, local
-from environment import env, reporter
+from environment import env
+from reporting import reporter
 
 
 def _escape_file_name(fname):

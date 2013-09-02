@@ -9,7 +9,8 @@ from dependency_graph import DependencyGraph
 from process_scheduler import ProcessScheduler
 from process import RemoteProcess, remote
 
-from environment import env, reporter
+from environment import env
+from reporting import reporter
 
 
 class TaskScheduler(object):
