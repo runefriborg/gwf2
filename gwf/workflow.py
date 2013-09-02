@@ -10,6 +10,7 @@ import logging
 import platform
 from exceptions import NotImplementedError
 
+import reporting
 import parser  # need this to re-parse instantiated templates
 
 from process import remote, local
@@ -409,12 +410,27 @@ class Target(ExecutableTask):
                               (src_path, dst_path, src_host))
                 remote('ln {0} {1}'.format(src_path, dst_path), src_host)
             else:
-                command = 'scp {0}:{1} {2}:{3}'.format(src_host,
-                                                       src_path,
-                                                       dst_host,
-                                                       dst_path)
+                src = ''.join(src_host, ':', src_path)
+                dst = ''.join(dst_host, ':', dst_path)
+                command = 'scp {0} {1}'.format(src, dst)
+
                 logging.debug('%s' % command)
-                local(command)
+
+                reporter.report(reporting.TRANSFER_STARTED,
+                                task=self.name,
+                                source=src,
+                                destination=dst)
+                if local(command) == 0:
+                    reporter.report(reporting.TRANSFER_COMPLETED,
+                                    task=self.name,
+                                    source=src,
+                                    destination=dst)
+                else:
+                    reporter.report(reporting.TRANSFER_FAILED,
+                                    task=self.name,
+                                    source=src,
+                                    destination=dst,
+                                    explanation='non-zero return code')
 
     def move_output(self, working_dir):
         for out_file in self.output:
