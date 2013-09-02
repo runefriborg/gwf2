@@ -1,5 +1,7 @@
+import os.path
 import subprocess
 import logging
+import platform
 
 import reporting
 
@@ -38,6 +40,13 @@ class TaskScheduler(object):
 
         # This list contains all the running jobs.
         self.running = set()
+
+        # Add an entry to shared storage which tells which mother node this
+        # workflow is being run on (mother node being the node on which gwf
+        # is run).
+        host_file_path = os.path.join(env.config_dir, 'hosts', env.job_id)
+        with open(host_file_path, 'w') as f:
+            f.write(platform.node())
 
         reporter.report(reporting.WORKFLOW_STARTED,
                         file=self.workflow.path,
@@ -177,6 +186,10 @@ class TaskScheduler(object):
         # in some file on shared storage which maps jobs to nodes?)
         reporter.report(reporting.WORKFLOW_COMPLETED)
         reporter.finalize()
+
+        # Remove the file which says that the workflow is still running.
+        os.remove(os.path.join(env.config_dir, 'hosts', env.job_id))
+
     def get_available_node(self, cores_needed):
         for node, cores in env.nodes.iteritems():
             if cores >= cores_needed:
