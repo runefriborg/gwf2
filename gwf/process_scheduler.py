@@ -2,7 +2,7 @@ import time
 
 
 class ProcessScheduler(object):
-    EVENT_NAMES = ['before', 'started', 'done']
+    EVENT_NAMES = ['before', 'started', 'done', 'stopped']
 
     def __init__(self):
         self.processes = {}
@@ -22,6 +22,10 @@ class ProcessScheduler(object):
         for listener in self.listeners['done']:
             listener(identifier, errorcode)
 
+    def _notify_stopped(self):
+        for listener in self.listeners['stopped']:
+            listener()
+
     def schedule(self, identifier, process):
         self._notify_before(identifier)
 
@@ -38,6 +42,7 @@ class ProcessScheduler(object):
                     self._notify_done(identifier, process.returncode)
                     del self.processes[identifier]
             time.sleep(1)
+        self._notify_stopped()
 
     def stop(self):
         self.stopped = True
