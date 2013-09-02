@@ -176,7 +176,7 @@ class FileReporter(Reporter):
 if not reporter:
     # Initialize file reporter such that it writes the log file to local
     # storage (scratch) until the reporter is finalized.
-    tmp_dir = os.path.join(env.config_dir, 'jobs', env.job_id)
+    tmp_dir = os.path.join(env.scratch_dir, 'jobs', env.job_id)
     final_dir = os.path.join(env.config_dir, 'jobs', env.job_id)
     reporter = FileReporter(tmp_dir=tmp_dir,
                             final_dir=final_dir)
