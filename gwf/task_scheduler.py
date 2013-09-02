@@ -1,6 +1,7 @@
-import os
 import subprocess
 import logging
+
+import reporting
 
 from copy import copy
 
@@ -8,7 +9,8 @@ from dependency_graph import DependencyGraph
 from process_scheduler import ProcessScheduler
 from process import RemoteProcess, remote
 
-PBS_NODEFILE = os.environ['PBS_NODEFILE']
+from environment import env
+from reporting import reporter
 
 
 class TaskScheduler(object):
@@ -18,21 +20,6 @@ class TaskScheduler(object):
 
         # build the dependency graph
         self.dependency_graph = DependencyGraph(self.workflow)
-
-        # Figure out how many cores each allocated node has available. We need
-        # this when scheduling jobs.
-        self.nodes = {}
-        with open(PBS_NODEFILE) as node_file:
-            for node in node_file:
-                node_name = node.strip()
-                if not node_name in self.nodes:
-                    self.nodes[node_name] = 0
-                self.nodes[node_name] += 1
-
-        # Print available nodes.
-        logging.debug('available nodes:')
-        for node, cores in self.nodes.iteritems():
-            logging.debug('%s %s' % (node, cores))
 
         # For every target name specified by the user, compute its dependencies
         # and build a list of all tasks which must be run. self.schedule no
@@ -56,6 +43,11 @@ class TaskScheduler(object):
         # This list contains all the running jobs.
         self.running = []
 
+        reporter.report(reporting.WORKFLOW_STARTED,
+                        file=self.workflow.path,
+                        queued=[task.name for task in self.missing],
+                        nodes=env.nodes.keys())
+
     def run(self):
         # ... then start the scheduler to actually run the jobs.
         self.scheduler = ProcessScheduler()
@@ -71,6 +63,9 @@ class TaskScheduler(object):
         '''Schedule all missing tasks.'''
         if not self.missing and not self.running:
             self.scheduler.stop()
+
+            reporter.report(reporting.WORKFLOW_COMPLETED)
+            reporter.finalize()
 
         # NOTE: The copy is IMPORTANT since we modify missing
         #       during scheduling.
@@ -113,7 +108,7 @@ class TaskScheduler(object):
         task.host = self.get_available_node(task.cores)
 
         # decrease the number of cores that the chosen node has available
-        self.nodes[task.host] -= task.cores
+        env.nodes[task.host] -= task.cores
 
         logging.debug('making destination directory %s on host %s' %
                       (task.local_wd, task.host))
@@ -157,10 +152,11 @@ class TaskScheduler(object):
         # figure out where this task was run and increment the number of cores
         # available on the host, since the job is now done.
         host = task.host
-        self.nodes[host] += task.cores
+        env.nodes[host] += task.cores
 
         self.running.remove(task)
 
+        reporter.report(reporting.TASK_COMPLETED, task=task.name)
         logging.info('task done: %s', task.name)
 
         # reschedule now that we know that a task has finished
@@ -176,7 +172,12 @@ class TaskScheduler(object):
     def on_job_started(self, task):
         self.running.append(task)
 
+        reporter.report(reporting.TASK_STARTED,
+                        task=task.name,
+                        host=task.host,
+                        working_dir=task.local_wd)
+
     def get_available_node(self, cores_needed):
-        for node, cores in self.nodes.iteritems():
+        for node, cores in env.nodes.iteritems():
             if cores >= cores_needed:
                 return node
