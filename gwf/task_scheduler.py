@@ -19,7 +19,7 @@ class TaskScheduler(object):
         self.workflow = workflow
 
         # build the dependency graph
-        self.dependency_graph = DependencyGraph(self.workflow)
+        self.graph = DependencyGraph(self.workflow)
 
         # For every target name specified by the user, compute its dependencies
         # and build a list of all tasks which must be run. self.schedule no
@@ -29,19 +29,15 @@ class TaskScheduler(object):
         targets = [workflow.targets[target_name]
                    for target_name in workflow.target_names]
 
-        self.schedule = set()
-        for target in targets:
-            schedule = self.dependency_graph.schedule(target.name)
-            self.schedule.update(schedule)
-        logging.debug('schedule: %s', ', '.join(
-                      task.name for task in self.schedule))
+        self.schedule = frozenset(*(self.graph.schedule(target.name)
+                                    for target in targets))
 
         # Build a list of all the jobs that have not been completed yet.
         # Jobs should be removed from this list when they have completed.
-        self.missing = copy(self.schedule)
+        self.missing = set(self.schedule)
 
         # This list contains all the running jobs.
-        self.running = []
+        self.running = set()
 
         reporter.report(reporting.WORKFLOW_STARTED,
                         file=self.workflow.path,
@@ -154,7 +150,7 @@ class TaskScheduler(object):
         host = task.host
         env.nodes[host] += task.cores
 
-        self.running.remove(task)
+        self.running.discard(task)
 
         reporter.report(reporting.TASK_COMPLETED, task=task.name)
         logging.info('task done: %s', task.name)
@@ -170,7 +166,7 @@ class TaskScheduler(object):
             remote('rm -rf {0}'.format(task.local_wd), task.host)
 
     def on_job_started(self, task):
-        self.running.append(task)
+        self.running.add(task)
 
         reporter.report(reporting.TASK_STARTED,
                         task=task.name,
