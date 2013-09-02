@@ -52,5 +52,5 @@ process = subprocess.Popen(template.format(**vars(args)),
 command = ' '.join(['gwf-local',
                     '-f {workflow_file}',
                     '-a' if args.all else '',
-                    '{targets}'])
+                    '-t {targets}'])
 process.communicate(command.format(**vars(args)))
