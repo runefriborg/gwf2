@@ -3,6 +3,8 @@ import os.path
 import json
 import time
 
+from environment import env
+
 WORKFLOW_STARTED = 'WORKFLOW_STARTED'
 WORKFLOW_COMPLETED = 'WORKFLOW_COMPLETED',
 WORKFLOW_FAILED = 'WORKFLOW_FAILED',
@@ -26,6 +28,8 @@ EVENT_TYPES = {
 }
 
 LOG_NAME = 'log'
+
+reporter = None
 
 
 class Reporter(object):
@@ -59,3 +63,13 @@ class FileReporter(Reporter):
 
     def finalize(self):
         os.rename(self.tmp_file, self.final_file)
+
+if not reporter:
+    # Initialize file reporter such that it writes the log file to local
+    # storage (scratch) until the reporter is finalized.
+    tmp_dir = os.path.join(env.config_dir, 'jobs', env.job_id)
+    final_dir = os.path.join(env.config_dir, 'jobs', env.job_id)
+    reporter = FileReporter(tmp_dir=tmp_dir,
+                            final_dir=final_dir)
+
+__all__ = ['reporter']

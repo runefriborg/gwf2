@@ -3,8 +3,6 @@ import os.path
 import time
 import logging
 
-import reporting
-
 env = None
 reporter = None
 
@@ -76,12 +74,4 @@ if not env:
 
     logging.debug('running using %s' % repr(env))
 
-if not reporter:
-    # Initialize file reporter such that it writes the log file to local
-    # storage (scratch) until the reporter is finalized.
-    tmp_dir = os.path.join(env.config_dir, 'jobs', env.job_id)
-    final_dir = os.path.join(env.config_dir, 'jobs', env.job_id)
-    reporter = reporting.FileReporter(tmp_dir=tmp_dir,
-                                      final_dir=final_dir)
-
-__all__ = ['env', 'reporter']
+__all__ = ['env']
