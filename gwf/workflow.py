@@ -410,8 +410,8 @@ class Target(ExecutableTask):
                               (src_path, dst_path, src_host))
                 remote('ln {0} {1}'.format(src_path, dst_path), src_host)
             else:
-                src = ''.join(src_host, ':', src_path)
-                dst = ''.join(dst_host, ':', dst_path)
+                src = ''.join([src_host, ':', src_path])
+                dst = ''.join([dst_host, ':', dst_path])
                 command = 'scp {0} {1}'.format(src, dst)
 
                 logging.debug('%s' % command)
@@ -443,12 +443,27 @@ class Target(ExecutableTask):
             # make the directory which we're going to copy to
             local('mkdir -p {0}'.format(os.path.dirname(out_file)))
 
+            src = ''.join([src_host, ':', src_path])
+            reporter.report(reporting.TRANSFER_STARTED,
+                            task=self.name,
+                            source=src,
+                            destination=out_file)
+
             # now copy the file to the workflow working directory
-            command = 'scp {0}:{1} {2}'.format(src_host,
-                                               src_path,
-                                               out_file)
+            command = 'scp {0} {1}'.format(src, out_file)
+
             logging.debug('%s' % command)
-            remote(command, src_host)
+            if remote(command, src_host) == 0:
+                reporter.report(reporting.TRANSFER_COMPLETED,
+                                task=self.name,
+                                source=src,
+                                destination=out_file)
+            else:
+                reporter.report(reporting.TRANSFER_FAILED,
+                                task=self.name,
+                                source=src,
+                                destination=out_file,
+                                explanation='non-zero return code')
 
     @property
     def local_wd(self):
