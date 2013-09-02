@@ -4,7 +4,6 @@ import time
 import logging
 
 env = None
-reporter = None
 
 
 class Environment(object):
