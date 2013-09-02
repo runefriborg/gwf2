@@ -50,6 +50,7 @@ class TaskScheduler(object):
         self.scheduler.on('before', self.on_before_job_started)
         self.scheduler.on('started', self.on_job_started)
         self.scheduler.on('done', self.on_job_done)
+        self.scheduler.on('stopped', self.on_workflow_stopped)
 
         # Now, schedule everything that can be scheduled...
         self.schedule_tasks()
@@ -59,9 +60,6 @@ class TaskScheduler(object):
         '''Schedule all missing tasks.'''
         if not self.missing and not self.running:
             self.scheduler.stop()
-
-            reporter.report(reporting.WORKFLOW_COMPLETED)
-            reporter.finalize()
 
         # NOTE: The copy is IMPORTANT since we modify missing
         #       during scheduling.
@@ -173,6 +171,12 @@ class TaskScheduler(object):
                         host=task.host,
                         working_dir=task.local_wd)
 
+    def on_workflow_stopped(self):
+        # Move log files from mother node to shared storage and somehow
+        # indicate that the workflow logs have been moved (removed entry
+        # in some file on shared storage which maps jobs to nodes?)
+        reporter.report(reporting.WORKFLOW_COMPLETED)
+        reporter.finalize()
     def get_available_node(self, cores_needed):
         for node, cores in env.nodes.iteritems():
             if cores >= cores_needed:
