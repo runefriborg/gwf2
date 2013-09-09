@@ -34,17 +34,12 @@ environment = get_environment()
 
 # initialize file reporter such that it writes the log file to local
 # storage (scratch) until the reporter is finalized.
-tmp_dir = os.path.join(environment.scratch_dir, 'jobs', environment.job_id)
-final_dir = os.path.join(environment.config_dir, 'jobs', environment.job_id)
+local_dir = os.path.join(environment.scratch_dir, environment.job_id)
+shared_dir = os.path.join(environment.config_dir, 'jobs', environment.job_id)
 
-reporter = FileReporter(tmp_dir=tmp_dir, final_dir=final_dir)
+reporter = FileReporter(tmp_dir=local_dir, final_dir=shared_dir)
 
-# construct a directory structure to hold all meta information about this
-# workflow instance.
-workflow_base = os.path.join(environment.config_dir, environment.job_id)
-os.mkdir(workflow_base)
-
-logging.debug('running using %s' % repr(environment))
+logging.debug(environment)
 
 # initialize a scheduler for the workflow and start the run loop.
 scheduler = TaskScheduler(environment,
