@@ -65,6 +65,17 @@ class TaskScheduler(object):
         for task in copy(self.missing):
             self.schedule_task(task)
 
+    def _dependencies_done(self, task):
+        # If a dependency is not executable, we will not wait for it
+        # to complete. Also, we will only wait for the dependency if it was
+        # actually scheduled. If it wasn't scheduled, its output files
+        # already exist and thus it should never be executed.
+        for _, dependency in task.dependencies:
+            if dependency.can_execute and dependency in self.schedule:
+                if dependency in self.missing or dependency in self.running:
+                    return False
+        return True
+
     def schedule_task(self, task):
         '''Schedule a single task if all dependencies have been computed'''
         logging.debug('scheduling task=%s', task.name)
@@ -74,22 +85,8 @@ class TaskScheduler(object):
             return
 
         # If all dependencies are done, we may schedule this task.
-        for _, dep_task in task.dependencies:
-            # If the dependency is not executable, we will not wait for it
-            # to complete. Also, we will only wait for the dependency if it was
-            # actually scheduled. If it wasn't scheduled, its output files
-            # already exist and thus it should never be executed.
-            if dep_task.can_execute and dep_task in self.schedule:
-                # if the dependency is either missing or still running, this
-                # task cannot be scheduled.
-                if dep_task in self.missing:
-                    logging.debug('task not scheduled - dependency %s missing',
-                                  dep_task.name)
-                    return
-                if dep_task in self.running:
-                    logging.debug('task not scheduled - dependency %s running',
-                                  dep_task.name)
-                    return
+        if not self._dependencies_done(task):
+            return
 
         task.local_wd = os.path.join(self.environment.scratch_dir,
                                      self.environment.job_id,
@@ -194,10 +191,6 @@ class TaskScheduler(object):
         # indicate that the workflow logs have been moved.
         self.reporter.report(reporting.WORKFLOW_COMPLETED)
         self.reporter.finalize()
-
-        logging.debug('removed job lock file from %s' %
-                      os.path.join(self.environment.config_dir,
-                                   'hosts', self.environment.job_id))
 
     def get_available_node(self, cores_needed):
         for node, cores in self.environment.nodes.iteritems():
