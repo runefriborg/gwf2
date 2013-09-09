@@ -9,10 +9,6 @@ GWF_DEFAULT_WALLTIME = os.getenv('GWF_DEFAULT_WALLTIME', '48:0:0')
 GWF_DEFAULT_QUEUE = os.getenv('GWF_DEFAULT_QUEUE', 'normal')
 
 
-class SpaceSeparatedListAction(argparse.Action):
-    def __call__(self, parser, namespace, values, option_string=None):
-        setattr(namespace, self.dest, ' '.join(values))
-
 parser = argparse.ArgumentParser(description='Submit a workflow to the grid.')
 
 parser.add_argument('-n', '--name',
@@ -25,19 +21,7 @@ parser.add_argument('-w', '--walltime', default=GWF_DEFAULT_WALLTIME,
 parser.add_argument('-q', '--queue-name', default=GWF_DEFAULT_QUEUE,
                     help='name of the queue to run the workflow in')
 
-parser.add_argument('-f', '--file',
-                    default='workflow.gwf', dest='workflow_file',
-                    help='workflow file if not the default (workflow.gwf).')
-
-group = parser.add_mutually_exclusive_group()
-
-group.add_argument('-a', '--all', action='store_true', default=False,
-                   help='run all end targets in the workflow')
-group.add_argument('-t', '--targets', nargs='+',
-                   action=SpaceSeparatedListAction,
-                   help='the target(s) to process.')
-
-args = parser.parse_args()
+args, remainder_args = parser.parse_known_args()
 
 template = ' '.join(['qsub',
                     '-N {name}',
@@ -49,8 +33,4 @@ process = subprocess.Popen(template.format(**vars(args)),
                            shell=True,
                            stdin=subprocess.PIPE)
 
-command = ' '.join(['gwf-local',
-                    '-f {workflow_file}',
-                    '-a' if args.all else '',
-                    '-t {targets}'])
-process.communicate(command.format(**vars(args)))
+process.communicate('gwf-local ' + ' '.join(remainder_args))
