@@ -146,8 +146,7 @@ class TaskScheduler(object):
 
         # figure out where this task was run and increment the number of cores
         # available on the host, since the job is now done.
-        host = task.host
-        self.environment.nodes[host] += task.cores
+        self.environment.nodes[task.host] += task.cores
 
         self.running.discard(task)
 
