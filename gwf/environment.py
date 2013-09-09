@@ -1,9 +1,7 @@
 import os
 import os.path
 import time
-import logging
-
-env = None
+import platform
 
 
 class Environment(object):
@@ -11,12 +9,16 @@ class Environment(object):
     @property
     def scratch_dir(self):
         return os.getenv('GWF_SCRATCH',
-                         os.path.join(os.path.expanduser('~'), 'gwf-scratch'))
+                         os.path.join(os.path.expanduser('~'), '/scratch/'))
 
     @property
     def config_dir(self):
         return os.getenv('GWF_CONFIG_DIR',
                          os.path.expanduser('~/.gwf/'))
+
+    @property
+    def mother_node(self):
+        return platform.node()
 
     def __repr__(self):
         properties = ['job_id', 'nodes', 'scratch_dir', 'config_dir']
@@ -59,18 +61,10 @@ class FakeEnvironment(Environment):
         cores = multiprocessing.cpu_count()
         self.nodes = {platform.node(): cores}
 
-if not env:
+
+def get_environment():
+    # by default, we use a fake environment unless we figure out that there is
+    # a real environment set by the queueing system.
     if os.getenv('PBS_JOBID', False) and os.getenv('PBS_NODEFILE', False):
-        env = RealEnvironment()
-    else:
-        env = FakeEnvironment()
-
-    if not os.path.exists(env.scratch_dir):
-        os.makedirs(env.scratch_dir)
-
-    if not os.path.exists(env.config_dir):
-        os.makedirs(env.config_dir)
-
-    logging.debug('running using %s' % repr(env))
-
-__all__ = ['env']
+        return RealEnvironment()
+    return FakeEnvironment()

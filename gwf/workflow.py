@@ -10,12 +10,10 @@ import logging
 import platform
 from exceptions import NotImplementedError
 
-import reporting
 import parser  # need this to re-parse instantiated templates
 
 from process import remote, local
-from environment import env
-from reporting import reporter
+from events import Event
 
 
 def _escape_file_name(fname):
@@ -42,6 +40,7 @@ def _make_absolute_path(working_dir, fname):
     else:
         abspath = os.path.join(working_dir, fname)
     return os.path.normpath(abspath)
+
 
 # TEMPLATES
 
@@ -223,6 +222,10 @@ class Task(object):
         self.is_dummy = False
         self.host = platform.node()
 
+        self.transfer_started = Event()
+        self.transfer_failed = Event()
+        self.transfer_success = Event()
+
         self._references = 0
 
     @property
@@ -317,23 +320,21 @@ class SystemFile(Task):
                               source, os.path.join(local_wd, relative_path))
 
                 destination = os.path.join(local_wd, relative_path)
-                reporter.report(reporting.TRANSFER_STARTED,
-                                task=self.name,
-                                source=source,
-                                destination=destination)
+
+                self.transfer_started(task=self.name,
+                                      source=source,
+                                      destination=destination)
 
                 shutil.copyfile(source, destination)
             except OSError, e:
-                reporter.report(reporting.TRANSFER_FAILED,
-                                task=self.name,
-                                source=source,
-                                destination=destination,
-                                explanation=e.strerror)
+                self.transfer_failed(task=self.name,
+                                     source=source,
+                                     destination=destination,
+                                     explanation=e.strerror)
             else:
-                reporter.report(reporting.TRANSFER_COMPLETED,
-                                task=self.name,
-                                source=source,
-                                destination=destination)
+                self.transfer_success(task=self.name,
+                                      source=source,
+                                      destination=destination)
 
 
 class ExecutableTask(Task):
@@ -359,7 +360,7 @@ class Target(ExecutableTask):
                  code,
                  wd):
         # passing None as dependencies, 'cause Workflow will fill it in
-        Task.__init__(self, name, None, wd)
+        super(Target, self).__init__(name, None, wd)
         self.input = input
         self.output = output
         self.cores = cores
@@ -416,21 +417,18 @@ class Target(ExecutableTask):
 
                 logging.debug('%s' % command)
 
-                reporter.report(reporting.TRANSFER_STARTED,
-                                task=self.name,
-                                source=src,
-                                destination=dst)
+                self.transfer_started(task=self.name,
+                                      source=src,
+                                      destination=dst)
                 if local(command) == 0:
-                    reporter.report(reporting.TRANSFER_COMPLETED,
-                                    task=self.name,
-                                    source=src,
-                                    destination=dst)
+                    self.transfer_success(task=self.name,
+                                          source=src,
+                                          destination=dst)
                 else:
-                    reporter.report(reporting.TRANSFER_FAILED,
-                                    task=self.name,
-                                    source=src,
-                                    destination=dst,
-                                    explanation='non-zero return code')
+                    self.transfer_failed(task=self.name,
+                                         source=src,
+                                         destination=dst,
+                                         explanation='non-zero return code')
 
     def move_output(self, working_dir):
         for out_file in self.output:
@@ -444,30 +442,24 @@ class Target(ExecutableTask):
             local('mkdir -p {0}'.format(os.path.dirname(out_file)))
 
             src = ''.join([src_host, ':', src_path])
-            reporter.report(reporting.TRANSFER_STARTED,
-                            task=self.name,
-                            source=src,
-                            destination=out_file)
+
+            self.transfer_started(task=self.name,
+                                  source=src,
+                                  destination=out_file)
 
             # now copy the file to the workflow working directory
             command = 'scp {0} {1}'.format(src, out_file)
 
             logging.debug('%s' % command)
             if remote(command, src_host) == 0:
-                reporter.report(reporting.TRANSFER_COMPLETED,
-                                task=self.name,
-                                source=src,
-                                destination=out_file)
+                self.transfer_success(task=self.name,
+                                      source=src,
+                                      destination=out_file)
             else:
-                reporter.report(reporting.TRANSFER_FAILED,
-                                task=self.name,
-                                source=src,
-                                destination=out_file,
-                                explanation='non-zero return code')
-
-    @property
-    def local_wd(self):
-        return os.path.join(env.scratch_dir, env.job_id, self.name)
+                self.transfer_started(task=self.name,
+                                      source=src,
+                                      destination=out_file,
+                                      explanation='non-zero return code')
 
     @property
     def checkpoint(self):
@@ -591,3 +583,9 @@ class Workflow(object):
                     sysfile = SystemFile(input_file, self.working_dir)
                     dependencies.append((input_file, sysfile))
             target.dependencies = dependencies
+
+        # check if all targets that we wish to run have been defined in the
+        # workflow.
+        for target in target_names:
+            if target not in self.targets:
+                raise Exception('target %s not found in workflow.' % target)
