@@ -1,4 +1,5 @@
 import subprocess
+import logging
 
 from exceptions import NotImplementedError
 
@@ -36,6 +37,7 @@ class LocalProcess(Process):
         self.kwargs = kwargs
 
     def run(self):
+        logging.debug(self.command)
         self.process = subprocess.Popen(self.command,
                                         *self.args,
                                         shell=True,

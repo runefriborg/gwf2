@@ -4,8 +4,6 @@ import json
 import time
 import datetime
 
-from environment import env
-
 WORKFLOW_STARTED = 'WORKFLOW_STARTED'
 WORKFLOW_COMPLETED = 'WORKFLOW_COMPLETED'
 WORKFLOW_FAILED = 'WORKFLOW_FAILED'
@@ -29,8 +27,6 @@ EVENT_TYPES = {
 }
 
 LOG_NAME = 'log'
-
-reporter = None
 
 
 class Reporter(object):
@@ -139,15 +135,23 @@ class ReportReader(object):
         }
 
 
-class FileReportReader(ReportReader):
+class FileLikeReportReader(ReportReader):
+    '''Reads and interprets a report stream read from a file-like
+    object to rebuild the state of the currently running object.'''
+
+    def __init__(self, file_like):
+        super(FileLikeReportReader, self).__init__()
+        for line in file_like.readlines():
+            self.feed(json.loads(line))
+
+
+class FileReportReader(FileLikeReportReader):
     '''Reads and interprets a report file to rebuild the state of the
     currently running job.'''
 
     def __init__(self, filename):
-        super(FileReportReader, self).__init__()
         with open(filename) as f:
-            for line in f.readlines():
-                self.feed(json.loads(line))
+            super(FileReportReader, self).__init__(f)
 
 
 class FileReporter(Reporter):
@@ -172,13 +176,3 @@ class FileReporter(Reporter):
 
     def finalize(self):
         os.rename(self.tmp_file, self.final_file)
-
-if not reporter:
-    # Initialize file reporter such that it writes the log file to local
-    # storage (scratch) until the reporter is finalized.
-    tmp_dir = os.path.join(env.config_dir, 'jobs', env.job_id)
-    final_dir = os.path.join(env.config_dir, 'jobs', env.job_id)
-    reporter = FileReporter(tmp_dir=tmp_dir,
-                            final_dir=final_dir)
-
-__all__ = ['reporter']
