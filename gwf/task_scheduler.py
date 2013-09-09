@@ -45,10 +45,9 @@ class TaskScheduler(object):
                              nodes=self.environment.nodes.keys())
 
     def run(self):
-        # ... then start the scheduler to actually run the jobs.
-        self.scheduler.before += self.on_before_job_started
-        self.scheduler.started += self.on_job_started
-        self.scheduler.done += self.on_job_done
+        self.scheduler.before += self.on_before_task_started
+        self.scheduler.started += self.on_task_started
+        self.scheduler.done += self.on_task_done
         self.scheduler.stopped += self.on_workflow_stopped
 
         # Now, schedule everything that can be scheduled...
@@ -113,7 +112,7 @@ class TaskScheduler(object):
 
         self.scheduler.schedule(task, process)
 
-    def on_before_job_started(self, task):
+    def on_before_task_started(self, task):
         self.missing.remove(task)
 
         task.transfer_started += self.on_transfer_started
@@ -124,7 +123,7 @@ class TaskScheduler(object):
         logging.debug('fetching dependencies for %s' % task.name)
         task.get_input()
 
-    def on_job_done(self, task, errorcode):
+    def on_task_done(self, task, errorcode):
         if errorcode > 0:
             logging.error(
                 'task %s stopped with non-zero error code %s - halting',
@@ -178,7 +177,7 @@ class TaskScheduler(object):
                           (task.local_wd, task.host))
             remote('rm -rf {0}'.format(task.local_wd), task.host)
 
-    def on_job_started(self, task):
+    def on_task_started(self, task):
         self.running.add(task)
 
         self.reporter.report(reporting.TASK_STARTED,
