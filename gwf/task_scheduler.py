@@ -18,6 +18,9 @@ class TaskScheduler(object):
         self.workflow = workflow
         self.scheduler = scheduler
 
+        self.job_dir = os.path.join(self.environment.scratch_dir,
+                                    self.environment.job_id)
+
         # build the dependency graph
         self.graph = DependencyGraph(self.workflow)
 
@@ -87,9 +90,7 @@ class TaskScheduler(object):
         if not self._dependencies_done(task):
             return
 
-        task.local_wd = os.path.join(self.environment.scratch_dir,
-                                     self.environment.job_id,
-                                     task.name)
+        task.local_wd = os.path.join(self.job_dir, task.name)
 
         # schedule the task
         logging.debug("running task=%s cores=%s cwd=%s code='%s'",
@@ -105,10 +106,16 @@ class TaskScheduler(object):
                       (task.local_wd, task.host))
         remote('mkdir -p {0}'.format(task.local_wd), task.host)
 
+        task.stderr = open(os.path.join(self.job_dir,
+                                        task.name + '.stderr'), 'w')
+        task.stdout = open(os.path.join(self.job_dir,
+                                        task.name + '.stdout'), 'w')
+
         process = RemoteProcess(task.code.strip(),
                                 task.host,
-                                stderr=subprocess.STDOUT,
-                                cwd=task.local_wd)
+                                cwd=task.local_wd,
+                                stderr=task.stderr,
+                                stdout=task.stdout)
 
         self.scheduler.schedule(task, process)
 
@@ -124,6 +131,8 @@ class TaskScheduler(object):
         task.get_input()
 
     def on_task_done(self, task, errorcode):
+        task.stdout.close()
+        task.stderr.close()
         if errorcode > 0:
             logging.error(
                 'task %s stopped with non-zero error code %s - halting',
