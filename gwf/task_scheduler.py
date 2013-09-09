@@ -46,10 +46,10 @@ class TaskScheduler(object):
 
     def run(self):
         # ... then start the scheduler to actually run the jobs.
-        self.scheduler.on('before', self.on_before_job_started)
-        self.scheduler.on('started', self.on_job_started)
-        self.scheduler.on('done', self.on_job_done)
-        self.scheduler.on('stopped', self.on_workflow_stopped)
+        self.scheduler.before += self.on_before_job_started
+        self.scheduler.started += self.on_job_started
+        self.scheduler.done += self.on_job_done
+        self.scheduler.stopped += self.on_workflow_stopped
 
         # Now, schedule everything that can be scheduled...
         self.schedule_tasks()
