@@ -31,9 +31,9 @@ parser.add_argument('-f', '--file',
 
 group = parser.add_mutually_exclusive_group()
 
-group.add_argument('-a', '--all', default=False,
+group.add_argument('-a', '--all', action='store_true', default=False,
                    help='run all end targets in the workflow')
-group.add_argument('-t', '--targets', nargs='*',
+group.add_argument('-t', '--targets', nargs='+',
                    action=SpaceSeparatedListAction,
                    help='the target(s) to process.')
 
