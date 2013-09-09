@@ -1,5 +1,4 @@
 import os.path
-import subprocess
 import logging
 
 import reporting
@@ -102,10 +101,9 @@ class TaskScheduler(object):
         self.environment.nodes[task.host] -= task.cores
 
         # TODO: move this in to some kind of FileRegistry...
-        logging.debug('making destination directory %s on host %s' %
-                      (task.local_wd, task.host))
         remote('mkdir -p {0}'.format(task.local_wd), task.host)
 
+        # open files to which we redirect stdout and stderr for the task
         task.stderr = open(os.path.join(self.job_dir,
                                         task.name + '.stderr'), 'w')
         task.stdout = open(os.path.join(self.job_dir,
@@ -127,7 +125,6 @@ class TaskScheduler(object):
         task.transfer_failed += self.on_transfer_failed
 
         # move all input files to local working directory
-        logging.debug('fetching dependencies for %s' % task.name)
         task.get_input()
 
     def on_task_done(self, task, errorcode):
@@ -190,8 +187,6 @@ class TaskScheduler(object):
     def cleanup(self, task):
         if task.host:
             # delete the task directory on the host
-            logging.debug('deleting directory %s on host %s' %
-                          (task.local_wd, task.host))
             remote('rm -rf {0}'.format(task.local_wd), task.host)
 
     def on_task_started(self, task):
