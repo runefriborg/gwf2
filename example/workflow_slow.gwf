@@ -1,0 +1,25 @@
+This is an example workflow for read mapping using bwa and samtools.
+
+@target IndexGenome
+:input ponAbe2.fa.gz
+:output ponabe2-bwaidx.amb ponabe2-bwaidx.ann ponabe2-bwaidx.pac ponabe2-bwaidx.sa ponabe2-bwaidx.bwt
+
+bwa index -p ponabe2-bwaidx -a bwtsw ponAbe2.fa.gz && sleep 10
+
+
+@target MapReads
+:input Masala_R1.fastq.gz Masala_R2.fastq.gz
+:input ponabe2-bwaidx.amb ponabe2-bwaidx.ann ponabe2-bwaidx.pac ponabe2-bwaidx.sa ponabe2-bwaidx.bwt
+:output Masala.unsorted.bam
+:cores 1
+
+bwa mem -t 16 ponabe2-bwaidx Masala_R1.fastq.gz Masala_R2.fastq.gz | \
+    samtools view -Shb - > Masala.unsorted.bam && sleep 10
+
+
+@target SortBAM
+:input Masala.unsorted.bam
+:output Masala.sorted.rmdup.bam
+
+samtools sort -o Masala.unsorted.bam /scratch/$PBS_JOBID/Masala | \
+     samtools rmdup -s - Masala.sorted.rmdup.bam && sleep 10
