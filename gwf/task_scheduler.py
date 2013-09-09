@@ -134,7 +134,7 @@ class TaskScheduler(object):
         # move stdout and stderr to shared storage
         srcs = ' '.join([os.path.join(self.job_dir, task.name + '.stderr'),
                          os.path.join(self.job_dir, task.name + '.stdout')])
-        dst = os.path.join(self.environment.config_dir,
+        dst = os.path.join(self.environment.config_dir, 'jobs',
                            self.environment.job_id)
 
         remote('mv {0} {1}'.format(srcs, dst), task.host)

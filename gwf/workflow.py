@@ -400,27 +400,20 @@ class Target(ExecutableTask):
                                   src_path)
                     os.exit(1)
 
-            logging.debug('making destination directory %s on host %s' %
-                          (os.path.dirname(dst_path), dst_host))
             remote('mkdir -p {0}'.format(os.path.dirname(dst_path)), dst_host)
 
             # if the source host is the same as the destination host, we won't
             # copy any files, but just make a hardlink to the source file.
             if src_host == dst_host and not dependency.checkpoint:
-                logging.debug('making hardlink from %s to %s on %s' %
-                              (src_path, dst_path, src_host))
                 remote('ln {0} {1}'.format(src_path, dst_path), src_host)
             else:
                 src = ''.join([src_host, ':', src_path])
                 dst = ''.join([dst_host, ':', dst_path])
-                command = 'scp {0} {1}'.format(src, dst)
-
-                logging.debug('%s' % command)
 
                 self.transfer_started(task=self.name,
                                       source=src,
                                       destination=dst)
-                if local(command) == 0:
+                if local('scp {0} {1}'.format(src, dst)) == 0:
                     self.transfer_success(task=self.name,
                                           source=src,
                                           destination=dst)
@@ -448,10 +441,7 @@ class Target(ExecutableTask):
                                   destination=out_file)
 
             # now copy the file to the workflow working directory
-            command = 'scp {0} {1}'.format(src, out_file)
-
-            logging.debug('%s' % command)
-            if remote(command, src_host) == 0:
+            if remote('scp {0} {1}'.format(src, out_file), src_host) == 0:
                 self.transfer_success(task=self.name,
                                       source=src,
                                       destination=out_file)
