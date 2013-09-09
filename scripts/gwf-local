@@ -21,7 +21,7 @@ group = parser.add_mutually_exclusive_group()
 
 group.add_argument('-a', '--all', default=False, action='store_true',
                    help='run all end targets in the workflow')
-group.add_argument('-t', '--targets', nargs='*', default=[],
+group.add_argument('-t', '--targets', nargs='+',
                    help='the target(s) to process.')
 
 args = parser.parse_args()
