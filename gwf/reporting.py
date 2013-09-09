@@ -42,7 +42,7 @@ class ReportReader(object):
     '''Reads and interprets a stream of reports to rebuild the state of the
     currently running job.
 
-    The user feeds the :class:`ReportReader` with reports using :func:`feed`
+    The user feeds the :class:`ReportReader` with reports using :func:`write`
     and is then able to read the current state at any time.'''
 
     def __init__(self):
@@ -73,7 +73,7 @@ class ReportReader(object):
             TRANSFER_FAILED: self._transfer_failed
         }
 
-    def feed(self, report):
+    def write(self, report):
         timestamp, event, data = report
         self.handlers[event](
             datetime.datetime.fromtimestamp(timestamp), **data)
@@ -136,22 +136,24 @@ class ReportReader(object):
 
 
 class FileLikeReportReader(ReportReader):
-    '''Reads and interprets a report stream read from a file-like
-    object to rebuild the state of the currently running object.'''
+    '''A ReportReader which can be written to like a file.'''
 
-    def __init__(self, file_like):
-        super(FileLikeReportReader, self).__init__()
-        for line in file_like.readlines():
-            self.feed(json.loads(line))
+    def write(self, report):
+        super(FileLikeReportReader, self).write(json.loads(report))
+
+    def fileno(self):
+        return -1
 
 
-class FileReportReader(FileLikeReportReader):
+class FileReportReader(ReportReader):
     '''Reads and interprets a report file to rebuild the state of the
     currently running job.'''
 
     def __init__(self, filename):
+        super(FileReportReader, self).__init__()
         with open(filename) as f:
-            super(FileReportReader, self).__init__(f)
+            for report in f.readlines():
+                self.write(json.loads(report))
 
 
 class FileReporter(Reporter):
