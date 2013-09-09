@@ -2,9 +2,12 @@ import os
 import os.path
 import time
 import platform
-
+import json
 
 class Environment(object):
+
+    PROPERTIES = ['job_id', 'nodes', 'scratch_dir',
+                  'config_dir', 'mother_node']
 
     @property
     def scratch_dir(self):
@@ -21,10 +24,14 @@ class Environment(object):
         return platform.node()
 
     def __repr__(self):
-        properties = ['job_id', 'nodes', 'scratch_dir', 'config_dir']
         return '{name}({values})'.format(name=__name__,
                                          values=str({p: self.__getattribute__(p)
-                                                    for p in properties}))
+                                                    for p in Environment.PROPERTIES}))
+
+    def dump(self, path):
+        obj = {p: self.__getattribute__(p) for p in Environment.PROPERTIES}
+        with open(path, 'w') as f:
+            json.dump(obj, f)
 
 
 class RealEnvironment(Environment):

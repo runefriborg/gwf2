@@ -24,6 +24,10 @@ class TaskScheduler(object):
         self.local_dir = os.path.join(self.environment.scratch_dir,
                                       self.environment.job_id)
 
+        # write environment file to signal that the job has started and so that
+        # we know where to read stdout/stderr files from.
+        self.environment.dump(os.path.join(self.shared_dir, 'environment'))
+
         # build the dependency graph
         self.graph = DependencyGraph(self.workflow)
 
@@ -202,8 +206,6 @@ class TaskScheduler(object):
                              working_dir=task.local_wd)
 
     def on_workflow_stopped(self):
-        # Move log file from mother node to shared storage and somehow
-        # indicate that the workflow logs have been moved.
         self.reporter.report(reporting.WORKFLOW_COMPLETED)
         self.reporter.finalize()
 

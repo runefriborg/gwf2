@@ -1,8 +1,57 @@
-import sys
-import pprint
+#!/usr/bin/env python
 
-from gwf.reporting import FileReportReader
+import os
+import os.path
+import json
+import argparse
 
-r = FileReportReader(sys.argv[1])
-pprint.pprint(r.workflow)
-pprint.pprint(r.tasks)
+from gwf.process import RemoteProcess
+from gwf.reporting import FileReportReader, FileLikeReportReader
+
+CONFIG_DIR = os.getenv('GWF_CONFIG_DIR', os.path.expanduser('~/.gwf/'))
+
+
+def get_job_environment(job):
+    with open(os.path.join(CONFIG_DIR, 'jobs', job, 'environment')) as f:
+        return json.load(f)
+
+
+def get_job_report(environment, job):
+    log_path = os.path.join(CONFIG_DIR, 'jobs', job, 'log')
+
+    if os.path.exists(log_path):
+        return FileReportReader(log_path)
+
+    # if the log doesn't exist locally, it must still be on the mother node.
+    remote_log_path = os.path.join(environment['scratch_dir'], job, 'log')
+
+    reader = FileLikeReportReader()
+    process = RemoteProcess('cat {0}'.format(remote_log_path),
+                            host=environment['mother_node'],
+                            stdout=reader)
+    process.run()
+    process.wait()
+    return reader
+
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser()
+    parser.add_argument('-l', '--list', action='store_true',
+                        help='list all previously and currently running jobs')
+    parser.add_argument('-j', '--job',
+                        help='show status for a specific job')
+    parser.add_argument('-t', '--task',
+                        help='show states for a specific task of a job')
+
+    args = parser.parse_args()
+
+    if args.list and (args.task or args.job):
+        parser.error('argument -l/--list: cannot be used with other arguments.')
+    if args.task and not args.job:
+        parser.error('argument -j/--job: required by argument -t/--task.')
+
+    for job in os.listdir(os.path.join(CONFIG_DIR, 'jobs')):
+        environment = get_job_environment(job)
+        print type(environment)
+        print job, environment, get_job_report(environment, job)
+
+    #reader = FileLikeReportReader()
