@@ -43,7 +43,6 @@ reporter = FileReporter(tmp_dir=tmp_dir, final_dir=final_dir)
 # workflow instance.
 workflow_base = os.path.join(environment.config_dir, environment.job_id)
 os.mkdir(workflow_base)
-os.mkdir(os.path.join(workflow_base, 'tasks'))
 
 logging.debug('running using %s' % repr(environment))
 
