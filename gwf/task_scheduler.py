@@ -1,7 +1,6 @@
 import os.path
 import subprocess
 import logging
-import platform
 
 import reporting
 
@@ -10,13 +9,12 @@ from copy import copy
 from dependency_graph import DependencyGraph
 from process import RemoteProcess, remote
 
-from environment import env
-from reporting import reporter
-
 
 class TaskScheduler(object):
 
-    def __init__(self, workflow, scheduler):
+    def __init__(self, environment, reporter, workflow, scheduler):
+        self.environment = environment
+        self.reporter = reporter
         self.workflow = workflow
         self.scheduler = scheduler
 
@@ -41,21 +39,10 @@ class TaskScheduler(object):
         # This list contains all the running jobs.
         self.running = set()
 
-        # Add an entry to shared storage which tells which mother node this
-        # workflow is being run on (mother node being the node on which gwf
-        # is run).
-        host_file_path = os.path.join(env.config_dir, 'hosts', env.job_id)
-        if not os.path.exists(os.path.join(env.config_dir, 'hosts')):
-            os.makedirs(os.path.join(env.config_dir, 'hosts'))
-        with open(host_file_path, 'w') as f:
-            f.write(platform.node())
-
-        logging.debug('job lock file written to %s' % host_file_path)
-
-        reporter.report(reporting.WORKFLOW_STARTED,
-                        file=self.workflow.path,
-                        queued=[task.name for task in self.missing],
-                        nodes=env.nodes.keys())
+        self.reporter.report(reporting.WORKFLOW_STARTED,
+                             file=self.workflow.path,
+                             queued=[task.name for task in self.missing],
+                             nodes=self.environment.nodes.keys())
 
     def run(self):
         # ... then start the scheduler to actually run the jobs.
@@ -93,19 +80,20 @@ class TaskScheduler(object):
             # actually scheduled. If it wasn't scheduled, its output files
             # already exist and thus it should never be executed.
             if dep_task.can_execute and dep_task in self.schedule:
-                if dep_task in self.schedule:
-                    # if the dependency is either missing or still running,
-                    # this task cannot be scheduled.
-                    if dep_task in self.missing:
-                        logging.debug(
-                            'task not scheduled - dependency %s missing',
-                            dep_task.name)
-                        return
-                    if dep_task in self.running:
-                        logging.debug(
-                            'task not scheduled - dependency %s running',
-                            dep_task.name)
-                        return
+                # if the dependency is either missing or still running, this
+                # task cannot be scheduled.
+                if dep_task in self.missing:
+                    logging.debug('task not scheduled - dependency %s missing',
+                                  dep_task.name)
+                    return
+                if dep_task in self.running:
+                    logging.debug('task not scheduled - dependency %s running',
+                                  dep_task.name)
+                    return
+
+        task.local_wd = os.path.join(self.environment.scratch_dir,
+                                     self.environment.job_id,
+                                     task.name)
 
         # schedule the task
         logging.debug("running task=%s cores=%s cwd=%s code='%s'",
@@ -114,8 +102,9 @@ class TaskScheduler(object):
         task.host = self.get_available_node(task.cores)
 
         # decrease the number of cores that the chosen node has available
-        env.nodes[task.host] -= task.cores
+        self.environment.nodes[task.host] -= task.cores
 
+        # TODO: move this in to some kind of FileRegistry...
         logging.debug('making destination directory %s on host %s' %
                       (task.local_wd, task.host))
         remote('mkdir -p {0}'.format(task.local_wd), task.host)
@@ -129,6 +118,10 @@ class TaskScheduler(object):
 
     def on_before_job_started(self, task):
         self.missing.remove(task)
+
+        task.transfer_started += self.on_transfer_started
+        task.transfer_success += self.on_transfer_success
+        task.transfer_failed += self.on_transfer_failed
 
         # move all input files to local working directory
         logging.debug('fetching dependencies for %s' % task.name)
@@ -158,15 +151,28 @@ class TaskScheduler(object):
         # figure out where this task was run and increment the number of cores
         # available on the host, since the job is now done.
         host = task.host
-        env.nodes[host] += task.cores
+        self.environment.nodes[host] += task.cores
 
         self.running.discard(task)
 
-        reporter.report(reporting.TASK_COMPLETED, task=task.name)
+        task.transfer_started -= self.on_transfer_started
+        task.transfer_success -= self.on_transfer_success
+        task.transfer_failed -= self.on_transfer_failed
+
+        self.reporter.report(reporting.TASK_COMPLETED, task=task.name)
         logging.info('task done: %s', task.name)
 
         # reschedule now that we know that a task has finished
         self.schedule_tasks()
+
+    def on_transfer_started(self, *args, **kwargs):
+        self.reporter.report(reporting.TRANSFER_STARTED, *args, **kwargs)
+
+    def on_transfer_success(self, *args, **kwargs):
+        self.reporter.report(reporting.TRANSFER_COMPLETED, *args, **kwargs)
+
+    def on_transfer_failed(self, *args, **kwargs):
+        self.reporter.report(reporting.TRANSFER_FAILED, *args, **kwargs)
 
     def cleanup(self, task):
         if task.host:
@@ -178,25 +184,22 @@ class TaskScheduler(object):
     def on_job_started(self, task):
         self.running.add(task)
 
-        reporter.report(reporting.TASK_STARTED,
-                        task=task.name,
-                        host=task.host,
-                        working_dir=task.local_wd)
+        self.reporter.report(reporting.TASK_STARTED,
+                             task=task.name,
+                             host=task.host,
+                             working_dir=task.local_wd)
 
     def on_workflow_stopped(self):
         # Move log file from mother node to shared storage and somehow
-        # indicate that the workflow logs have been moved (removed entry
-        # in some file on shared storage which maps jobs to nodes?)
-        reporter.report(reporting.WORKFLOW_COMPLETED)
-        reporter.finalize()
-
-        # Remove the file which says that the workflow is still running.
-        os.remove(os.path.join(env.config_dir, 'hosts', env.job_id))
+        # indicate that the workflow logs have been moved.
+        self.reporter.report(reporting.WORKFLOW_COMPLETED)
+        self.reporter.finalize()
 
         logging.debug('removed job lock file from %s' %
-                      os.path.join(env.config_dir, 'hosts', env.job_id))
+                      os.path.join(self.environment.config_dir,
+                                   'hosts', self.environment.job_id))
 
     def get_available_node(self, cores_needed):
-        for node, cores in env.nodes.iteritems():
+        for node, cores in self.environment.nodes.iteritems():
             if cores >= cores_needed:
                 return node
