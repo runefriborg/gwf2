@@ -12,5 +12,5 @@ class Event(object):
         return self
 
     def __isub__(self, observer):
-        self.observers.remove(observer)
+        self.observers.discard(observer)
         return self
