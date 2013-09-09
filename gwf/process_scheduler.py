@@ -4,7 +4,6 @@ from events import Event
 
 
 class ProcessScheduler(object):
-    EVENT_NAMES = ['before', 'started', 'done', 'stopped']
 
     def __init__(self):
         self.processes = {}
