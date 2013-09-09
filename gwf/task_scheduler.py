@@ -133,6 +133,15 @@ class TaskScheduler(object):
     def on_task_done(self, task, errorcode):
         task.stdout.close()
         task.stderr.close()
+
+        # move stdout and stderr to shared storage
+        srcs = ' '.join([os.path.join(self.job_dir, task.name + '.stderr'),
+                         os.path.join(self.job_dir, task.name + '.stdout')])
+        dst = os.path.join(self.environment.config_dir,
+                           self.environment.job_id)
+
+        remote('mv {0} {1}'.format(srcs, dst), task.host)
+
         if errorcode > 0:
             logging.error(
                 'task %s stopped with non-zero error code %s - halting',
