@@ -29,6 +29,14 @@ class Process(object):
     def returncode(self):
         raise NotImplementedError()
 
+    @property
+    def stderr(self):
+        raise NotImplementedError()
+
+    @property
+    def stdout(self):
+        raise NotImplementedError()
+
 
 class LocalProcess(Process):
     def __init__(self, command, *args, **kwargs):
@@ -64,6 +72,14 @@ class LocalProcess(Process):
     @property
     def returncode(self):
         return self.process.returncode
+
+    @property
+    def stderr(self):
+        return self.process.stderr
+
+    @property
+    def stdout(self):
+        return self.process.stdout
 
 
 class RemoteProcess(LocalProcess):
