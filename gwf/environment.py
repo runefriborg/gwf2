@@ -4,6 +4,7 @@ import time
 import platform
 import json
 
+
 class Environment(object):
 
     PROPERTIES = ['job_id', 'nodes', 'scratch_dir',
