@@ -4,6 +4,7 @@ import os
 import os.path
 import json
 import argparse
+import subprocess
 
 from gwf.process import RemoteProcess
 from gwf.reporting import FileReportReader, FileLikeReportReader
@@ -28,9 +29,14 @@ def get_job_report(environment, job):
     reader = FileLikeReportReader()
     process = RemoteProcess('cat {0}'.format(remote_log_path),
                             host=environment['mother_node'],
-                            stdout=reader)
+                            stdout=subprocess.PIPE)
+
     process.run()
+
+    for out in process.stdout:
+        reader.write(out)
     process.wait()
+
     return reader
 
 if __name__ == '__main__':

@@ -141,9 +141,6 @@ class FileLikeReportReader(ReportReader):
     def write(self, report):
         super(FileLikeReportReader, self).write(json.loads(report))
 
-    def fileno(self):
-        return -1
-
 
 class FileReportReader(ReportReader):
     '''Reads and interprets a report file to rebuild the state of the
