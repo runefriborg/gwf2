@@ -5,6 +5,7 @@ import os.path
 import json
 import argparse
 import subprocess
+import datetime
 
 from gwf.process import RemoteProcess
 from gwf.reporting import FileReportReader, FileLikeReportReader
@@ -57,7 +58,44 @@ if __name__ == '__main__':
 
     for job in os.listdir(os.path.join(CONFIG_DIR, 'jobs')):
         environment = get_job_environment(job)
-        print type(environment)
-        print job, environment, get_job_report(environment, job)
+        report = get_job_report(environment, job)
 
-    #reader = FileLikeReportReader()
+        workflow_status = 'R'
+
+        # Get status of workflow. If any task or transfer of the
+        # workflow has failed, the entire workflow has failed.
+        did_workflow_fail = bool(report.workflow['failure'])
+        did_task_fail = any(report.tasks[task]['failure'] or
+                            report.tasks[task]['transfers'][transfer]['failure']
+                            for task in report.tasks
+                            for transfer in report.tasks[task]['transfers'])
+
+        if did_workflow_fail or did_task_fail:
+            workflow_status = 'F'
+        elif report.workflow['completed_at'] is not None:
+            workflow_status = 'C'
+
+        if report.workflow['completed_at']:
+            completed_at = report.workflow['completed_at']
+        else:
+            completed_at = datetime.datetime.today()
+        duration = completed_at - report.workflow['started_at']
+
+        completed_tasks = len([True for task in report.tasks.values()
+                               if task['completed_at'] is not None])
+
+        percentage = 100.0
+        try:
+            total_tasks = float(len(report.workflow['queued']))
+            percentage = completed_tasks / total_tasks * 100.0
+        except ZeroDivisionError:
+            pass
+
+        template = '{0} {1} {2:>6.2f} {3:>3} {4:>3} {5:>5.0f}% {6}'
+        print template.format(job,
+                              workflow_status,
+                              duration.total_seconds(),
+                              completed_tasks,
+                              len(report.workflow['queued']),
+                              percentage,
+                              report.workflow['file'])
