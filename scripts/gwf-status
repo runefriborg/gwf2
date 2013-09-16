@@ -10,7 +10,21 @@ import datetime
 from gwf.process import RemoteProcess
 from gwf.reporting import FileReportReader, FileLikeReportReader
 
+from gwf.colors import red, blue, green, bold
+
 CONFIG_DIR = os.getenv('GWF_CONFIG_DIR', os.path.expanduser('~/.gwf/'))
+
+STATUS_COLORS = {'C': green, 'F': red, 'R': blue}
+
+
+def get_long_colored_status(status):
+    long_status = {'C': 'completed', 'F': 'failed', 'R': 'running'}
+    status_color_func = STATUS_COLORS[status]
+    return status_color_func(long_status[status])
+
+
+def get_short_colored_status(status):
+    return STATUS_COLORS[status](status)
 
 
 def get_job_environment(job):
