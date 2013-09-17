@@ -12,7 +12,7 @@ from gwf.reporting import FileReportReader, FileLikeReportReader
 
 from gwf.colors import red, blue, green, bold
 
-CONFIG_DIR = os.getenv('GWF_CONFIG_DIR', os.path.expanduser('~/.gwf/'))
+GWF_CONFIG_DIR = os.getenv('GWF_CONFIG_DIR', os.path.expanduser('~/.gwf/'))
 
 STATUS_COLORS = {'C': green, 'F': red, 'R': blue}
 
@@ -28,14 +28,14 @@ def get_short_colored_status(status):
 
 
 def get_job_environment(job):
-    with open(os.path.join(CONFIG_DIR, 'jobs', job, 'environment')) as f:
+    with open(os.path.join(GWF_CONFIG_DIR, 'jobs', job, 'environment')) as f:
         return json.load(f)
 
 
 def get_job_report(environment, job):
     """Returns a report reader for a specific job."""
 
-    log_path = os.path.join(CONFIG_DIR, 'jobs', job, 'log')
+    log_path = os.path.join(GWF_CONFIG_DIR, 'jobs', job, 'log')
 
     if os.path.exists(log_path):
         return FileReportReader(log_path)
@@ -55,6 +55,30 @@ def get_job_report(environment, job):
     process.wait()
 
     return reader
+
+
+def get_task_log(environment, job, task_name, log):
+    log_path = os.path.join(GWF_CONFIG_DIR, 'jobs',
+                            job, task_name + '.' + log)
+
+    try:
+        with open(log_path) as log:
+            return log.read()
+    except:
+        # if the log doesn't exist locally, it must still be on
+        # the mother node.
+        remote_log_path = os.path.join(environment['scratch_dir'],
+                                       job, task_name + '.' + log)
+
+        process = RemoteProcess('cat {0} 2> /dev/null || echo'.format(remote_log_path),
+                                host=environment['mother_node'],
+                                stdout=subprocess.PIPE)
+
+        process.run()
+        log = process.stdout.read()
+        process.wait()
+
+        return log
 
 
 def reports(path):
@@ -77,7 +101,7 @@ def reports(path):
                 return -1
 
     reports = []
-    for job in os.listdir(os.path.join(CONFIG_DIR, 'jobs')):
+    for job in os.listdir(os.path.join(GWF_CONFIG_DIR, 'jobs')):
         environment = get_job_environment(job)
         reports.append((job, get_job_report(environment, job)))
     return sorted(reports, cmp=comparator)
@@ -142,7 +166,7 @@ def get_duration(timeable):
 
 
 def print_list():
-    for job, report in reports(os.path.join(CONFIG_DIR, 'jobs')):
+    for job, report in reports(os.path.join(GWF_CONFIG_DIR, 'jobs')):
         workflow_status = get_workflow_status(report.workflow)
         workflow_duration = get_duration(report.workflow)
 
@@ -194,17 +218,46 @@ def print_job(job):
                               get_short_colored_status(task_status),
                               get_duration(task))
 
-        if not task['transfers']:
-            continue
 
-        for (src, dst), meta in task['transfers'].iteritems():
-            print " " * 7, bold('source     '), src
-            print " " * 7, bold('destination'), dst
-            print " " * 7, bold('duration   '), get_duration(meta)
-            if meta['failure']:
-                explanation = red(meta['failure']['explanation'])
-                print " " * 7, bold('failure    '), explanation
-            print
+def print_transfers(transfers):
+    for (src, dst), meta in transfers.iteritems():
+        print " " * 7, bold('source     '), src
+        print " " * 7, bold('destination'), dst
+        print " " * 7, bold('duration   '), get_duration(meta)
+        if meta['failure']:
+            explanation = red(meta['failure']['explanation'])
+            print " " * 7, bold('failure    '), explanation
+        print
+
+
+def print_task(job, task_name):
+    environment = get_job_environment(job)
+    report = get_job_report(environment, job)
+    task = report.workflow['tasks'][task_name]
+
+    status = get_task_status(task)
+    print bold('status    '), get_long_colored_status(status)
+    print bold('started   '), task['started_at']
+    if task['completed_at']:
+        print bold('completed '), task['completed_at']
+    print bold('duration  '), get_duration(task)
+
+    if task['failure']:
+        failure = task['failure']
+        print bold(red('failure')), "({0})".format(failure['timestamp'])
+        print "   ", failure['explanation']
+
+    if task['transfers']:
+        print
+        print bold('transfers')
+        print_transfers(task['transfers'])
+
+    print
+    print bold(blue('stdout'))
+    print get_task_log(environment, job, task_name, 'stdout')
+
+    print bold(red('stderr'))
+    print get_task_log(environment, job, task_name, 'stderr')
 
 
 if __name__ == '__main__':
@@ -225,9 +278,9 @@ if __name__ == '__main__':
 
     if args.list:
         print_list()
-    elif args.job:
+    elif args.job and not args.task:
         print_job(args.job)
-    elif args.task:
-        print_task(args.task)
+    elif args.job and args.task:
+        print_task(args.job, args.task)
     else:
         print_list()
