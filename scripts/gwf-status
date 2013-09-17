@@ -33,6 +33,8 @@ def get_job_environment(job):
 
 
 def get_job_report(environment, job):
+    """Returns a report reader for a specific job."""
+
     log_path = os.path.join(CONFIG_DIR, 'jobs', job, 'log')
 
     if os.path.exists(log_path):
@@ -80,6 +82,131 @@ def reports(path):
         reports.append((job, get_job_report(environment, job)))
     return sorted(reports, cmp=comparator)
 
+
+def format_duration(td):
+    hours, remainder = divmod(td.seconds, 3600)
+    minutes, seconds = divmod(remainder, 60)
+    return '{0:03d}:{1:02d}:{2:02d}'.format(hours, minutes, seconds)
+
+
+def failed(failables):
+    """Returns whether or not a failable thing has failed.
+
+    A dict is failable if it contains the key `failure`."""
+    if isinstance(failables, list):
+        return any(failed(failable)
+                   for failable in failables)
+    return bool(failables['failure'])
+
+
+def completed(completable):
+    """Returns whether or not a completable thing has completed.
+
+    A dict is completable if it contains the key `completed_at`."""
+    return completable['completed_at'] is not None
+
+
+def get_task_status(task):
+    if completed(task):
+        return 'C'
+    if failed(task) or failed(task['transfers'].values()):
+        return 'F'
+    return 'R'
+
+
+def get_workflow_status(workflow):
+    """Get status of workflow. If any task or transfer of the
+    workflow has failed, the entire workflow has failed."""
+    if failed(workflow) or failed(workflow['tasks'].values()):
+        return'F'
+    if completed(workflow):
+        return 'C'
+    return 'R'
+
+
+def get_duration(timeable):
+    """Return the duration if a timeable thing.
+
+    A dict is timeable if if contains the properties `started_at`
+    and `completed_at`.
+
+    If the has has completed, use its completion time to
+    compute the duration. Otherwise, just compute how long it has
+    been running."""
+    started_at = timeable['started_at']
+    if timeable['completed_at']:
+        completed_at = timeable['completed_at']
+    else:
+        completed_at = datetime.datetime.today()
+    return format_duration(completed_at - started_at)
+
+
+def print_list():
+    for job, report in reports(os.path.join(CONFIG_DIR, 'jobs')):
+        workflow_status = get_workflow_status(report.workflow)
+        workflow_duration = get_duration(report.workflow)
+
+        # Compute the number if tasks which have completed.
+        completed_tasks = len([True
+                               for task in report.workflow['tasks'].values()
+                               if task['completed_at'] is not None])
+
+        # Figure out the percentage of completed tasks. If zero tasks
+        # were queued we'll get a ZeroDivisionError, but we just catch
+        # it and use 100%.
+        percentage = 100.0
+        total_tasks = len(report.workflow['queued'])
+        if total_tasks > 0:
+            percentage = completed_tasks / float(total_tasks) * 100.0
+        percentage_str = blue('{0:>3.0f}%'.format(percentage))
+
+        template = '{0} {1} {2} {3} {4} {5} {6}'
+        print template.format(bold(job),
+                              get_long_colored_status(workflow_status),
+                              workflow_duration,
+                              completed_tasks,
+                              len(report.workflow['queued']),
+                              percentage_str,
+                              report.workflow['file'])
+
+
+def print_job(job):
+    environment = get_job_environment(job)
+    report = get_job_report(environment, job)
+
+    workflow_status = get_workflow_status(report.workflow)
+
+    print bold("status    "), get_long_colored_status(workflow_status)
+    print bold("file      "), report.workflow['file']
+    print bold("queued    "), ' '.join(report.workflow['queued'])
+    print bold("started   "), report.workflow['started_at']
+    if report.workflow['completed_at']:
+        print bold("completed "), report.workflow['completed_at']
+    print bold("duration  "), get_duration(report.workflow)
+    print
+    print bold("tasks"), "(running, failed and completed)"
+
+    max_width = max([len(x) for x in report.workflow['tasks'].keys()])
+    template = "    {0} {1} {2}"
+    for task_name, task in report.workflow['tasks'].iteritems():
+        task_status = get_task_status(task)
+        print template.format(bold(task_name.ljust(max_width)),
+                              get_short_colored_status(task_status),
+                              get_duration(task))
+
+        if not task['transfers']:
+            continue
+
+        for (src, dst), meta in task['transfers'].iteritems():
+            print " " * 7, bold('source     '), src
+            print " " * 7, bold('destination'), dst
+            print " " * 7, bold('duration   '), get_duration(meta)
+            if meta['failure']:
+                explanation = red(meta['failure']['explanation'])
+                print " " * 7, bold('failure    '), explanation
+            print
+
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('-l', '--list', action='store_true',
@@ -96,43 +223,11 @@ if __name__ == '__main__':
     if args.task and not args.job:
         parser.error('argument -j/--job: required by argument -t/--task.')
 
-    for job, report in reports(os.path.join(CONFIG_DIR, 'jobs')):
-        workflow_status = 'R'
-
-        # Get status of workflow. If any task or transfer of the
-        # workflow has failed, the entire workflow has failed.
-        did_workflow_fail = bool(report.workflow['failure'])
-        did_task_fail = any(report.tasks[task]['failure'] or
-                            report.tasks[task]['transfers'][transfer]['failure']
-                            for task in report.tasks
-                            for transfer in report.tasks[task]['transfers'])
-
-        if did_workflow_fail or did_task_fail:
-            workflow_status = 'F'
-        elif report.workflow['completed_at'] is not None:
-            workflow_status = 'C'
-
-        if report.workflow['completed_at']:
-            completed_at = report.workflow['completed_at']
-        else:
-            completed_at = datetime.datetime.today()
-        duration = completed_at - report.workflow['started_at']
-
-        completed_tasks = len([True for task in report.tasks.values()
-                               if task['completed_at'] is not None])
-
-        percentage = 100.0
-        try:
-            total_tasks = float(len(report.workflow['queued']))
-            percentage = completed_tasks / total_tasks * 100.0
-        except ZeroDivisionError:
-            pass
-
-        template = '{0} {1} {2:>6.2f} {3:>3} {4:>3} {5:>5.0f}% {6}'
-        print template.format(job,
-                              workflow_status,
-                              duration.total_seconds(),
-                              completed_tasks,
-                              len(report.workflow['queued']),
-                              percentage,
-                              report.workflow['file'])
+    if args.list:
+        print_list()
+    elif args.job:
+        print_job(args.job)
+    elif args.task:
+        print_task(args.task)
+    else:
+        print_list()
