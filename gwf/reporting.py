@@ -46,9 +46,6 @@ class ReportReader(object):
     and is then able to read the current state at any time.'''
 
     def __init__(self):
-        # the filename of the workflow file which initiated this job
-        self.file = None
-
         # keeps track of the state of the workflow
         self.workflow = {
             'completed_at': None,
@@ -56,10 +53,9 @@ class ReportReader(object):
             'file': None,
             'queued': [],
             'nodes': [],
-            'failure': None
+            'failure': None,
+            'tasks': {}
         }
-
-        self.tasks = {}
 
         self.handlers = {
             WORKFLOW_STARTED: self._workflow_started,
@@ -94,7 +90,7 @@ class ReportReader(object):
         }
 
     def _task_started(self, timestamp, task, host, working_dir):
-        self.tasks[task] = {
+        self.workflow['tasks'][task] = {
             'started_at': timestamp,
             'completed_at': None,
             'host': host,
@@ -104,10 +100,10 @@ class ReportReader(object):
         }
 
     def _task_completed(self, timestamp, task):
-        self.tasks[task]['completed_at'] = timestamp
+        self.workflow['tasks'][task]['completed_at'] = timestamp
 
     def _task_failed(self, task, timestamp, explanation):
-        self.tasks[task]['failure'] = {
+        self.workflow['tasks'][task]['failure'] = {
             'timestamp': timestamp,
             'explanation': explanation
         }
@@ -120,16 +116,16 @@ class ReportReader(object):
             'destination': destination,
             'failure': {}
         }
-        self.tasks[task]['transfers'][(source, destination)] = transfer
+        self.workflow['tasks'][task]['transfers'][(source, destination)] = transfer
 
     def _transfer_completed(self, timestamp, task, source, destination):
         key = (source, destination)
-        self.tasks[task]['transfers'][key]['completed_at'] = timestamp
+        self.workflow['tasks'][task]['transfers'][key]['completed_at'] = timestamp
 
     def _transfer_failed(self, timestamp, explanation,
                          task, source, destination):
         key = (source, destination)
-        self.tasks[task]['transfers'][key]['failure'] = {
+        self.workflow['tasks'][task]['transfers'][key]['failure'] = {
             'timestamp': timestamp,
             'explanation': explanation
         }
