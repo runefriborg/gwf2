@@ -1,3 +1,4 @@
+import sys
 import os.path
 import logging
 
@@ -52,6 +53,26 @@ class TaskScheduler(object):
                              file=self.workflow.path,
                              queued=[task.name for task in self.missing],
                              nodes=self.environment.nodes.keys())
+
+        # Check if all scheduled tasks request a valid amount of resources
+        # (in this case, cpu cores)... This check is not complete, since we
+        # do not know how many tasks will run at once (a lot of tasks could
+        # occupy all available resources). This is taken care of when
+        # scheduling a task.
+        expl = 'task {0} requested {1} cores, but no available node has {1} cores.'
+        for task in self.schedule:
+            for host, cores in self.environment.nodes.iteritems():
+                if task.cores <= cores:
+                    break
+            else:
+                self.reporter.report(reporting.WORKFLOW_FAILED,
+                                     explanation=expl.format(task.name,
+                                                             task.cores))
+
+                self.reporter.report(reporting.WORKFLOW_COMPLETED)
+                self.reporter.finalize()
+
+                sys.exit(1)
 
     def run(self):
         self.scheduler.before += self.on_before_task_started
