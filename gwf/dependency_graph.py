@@ -63,14 +63,9 @@ class DependencyGraph(object):
             if name not in self.nodes:
                 self.nodes[name] = self.build_DAG(target)
 
-        # If all end targets should be run, we have to figure out what those
-        # are and set the target names in the workflow.
-        if self.workflow.run_all:
-            self.workflow.target_names = \
-                set(node.task.name for node in self.end_targets())
-
         self.count_references()
 
+    @property
     def end_targets(self):
         '''Find targets which are not depended on by any other target.'''
         candidates = self.nodes.values()
