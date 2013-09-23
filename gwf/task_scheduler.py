@@ -123,7 +123,11 @@ class TaskScheduler(object):
         logging.debug("running task=%s cores=%s cwd=%s code='%s'",
                       task.name, task.cores, task.local_wd, task.code.strip())
 
+        # try to get a host with the number of cores the task requested. If
+        # this fails, we must schedule the task later.
         task.host = self.get_available_node(task.cores)
+        if not task.host:
+            return
 
         # decrease the number of cores that the chosen node has available
         self.environment.nodes[task.host] -= task.cores
