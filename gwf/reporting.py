@@ -125,6 +125,7 @@ class ReportReader(object):
     def _transfer_failed(self, timestamp, explanation,
                          task, source, destination):
         key = (source, destination)
+        self.workflow['tasks'][task]['transfers'][key]['completed_at'] = timestamp
         self.workflow['tasks'][task]['transfers'][key]['failure'] = {
             'timestamp': timestamp,
             'explanation': explanation
