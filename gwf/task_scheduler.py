@@ -68,10 +68,7 @@ class TaskScheduler(object):
                 self.reporter.report(reporting.WORKFLOW_FAILED,
                                      explanation=expl.format(task.name,
                                                              task.cores))
-
-                self.reporter.report(reporting.WORKFLOW_COMPLETED)
-                self.reporter.finalize()
-
+                self.scheduler.stop()
                 sys.exit(1)
 
     def run(self):
@@ -156,6 +153,11 @@ class TaskScheduler(object):
         task.transfer_success += self.on_transfer_success
         task.transfer_failed += self.on_transfer_failed
 
+        self.reporter.report(reporting.TASK_STARTED,
+                             task=task.name,
+                             host=task.host,
+                             working_dir=task.local_wd)
+
         # move all input files to local working directory
         task.get_input()
 
@@ -172,9 +174,9 @@ class TaskScheduler(object):
         remote('mv {0} {1}'.format(srcs, dst), task.host)
 
         if errorcode > 0:
-            logging.error(
-                'task %s stopped with non-zero error code %s - halting',
-                task.name, errorcode)
+            expl = 'task {0} stopped with non-zero error code {1}'
+            self.reporter.report(reporting.TASK_FAILED,
+                                 explanation=expl.format(task.name, errorcode))
             self.scheduler.stop()
 
         # if this task is the final task, we should copy its output files to
@@ -215,6 +217,7 @@ class TaskScheduler(object):
 
     def on_transfer_failed(self, *args, **kwargs):
         self.reporter.report(reporting.TRANSFER_FAILED, *args, **kwargs)
+        self.scheduler.stop()
 
     def cleanup(self, task):
         if task.host:
@@ -223,11 +226,6 @@ class TaskScheduler(object):
 
     def on_task_started(self, task):
         self.running.add(task)
-
-        self.reporter.report(reporting.TASK_STARTED,
-                             task=task.name,
-                             host=task.host,
-                             working_dir=task.local_wd)
 
     def on_workflow_stopped(self):
         self.reporter.report(reporting.WORKFLOW_COMPLETED)

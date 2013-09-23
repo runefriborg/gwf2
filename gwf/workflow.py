@@ -386,9 +386,9 @@ class Target(ExecutableTask):
             src_host = dependency.host
             dst_host = self.host
 
-            # if the dependency was checkpointed, we check if the file exists on
-            # the node at which it was generated. If not, we should fetch the file
-            # from remote storage.
+            # if the dependency was checkpointed, we check if the file exists
+            # on the node at which it was generated. If not, we should fetch
+            # the file from remote storage.
             if dependency.checkpoint and not dependency.host:
                 src_host = dst_host
                 src_path = in_file
@@ -405,7 +405,20 @@ class Target(ExecutableTask):
             # if the source host is the same as the destination host, we won't
             # copy any files, but just make a hardlink to the source file.
             if src_host == dst_host and not dependency.checkpoint:
-                remote('ln {0} {1}'.format(src_path, dst_path), src_host)
+                self.transfer_started(task=self.name,
+                                      source=src_path,
+                                      destination=dst_path)
+
+                errorcode = remote('ln {0} {1}'.format(src_path, dst_path),
+                                   src_host)
+
+                if errorcode > 0:
+                    expl = 'could not hard link {0} to {1}'.format(src_path,
+                                                                   dst_path)
+                    self.transfer_failed(task=self.name,
+                                         source=src_path,
+                                         destination=dst_path,
+                                         explanation=expl)
             else:
                 src = ''.join([src_host, ':', src_path])
                 dst = ''.join([dst_host, ':', dst_path])
@@ -413,15 +426,17 @@ class Target(ExecutableTask):
                 self.transfer_started(task=self.name,
                                       source=src,
                                       destination=dst)
+
                 if local('scp {0} {1}'.format(src, dst)) == 0:
                     self.transfer_success(task=self.name,
                                           source=src,
                                           destination=dst)
                 else:
+                    expl = 'could not copy file {0} to {1}'.format(src, dst)
                     self.transfer_failed(task=self.name,
                                          source=src,
                                          destination=dst,
-                                         explanation='non-zero return code')
+                                         explanation=expl)
 
     def move_output(self, working_dir):
         for out_file in self.output:
@@ -446,10 +461,11 @@ class Target(ExecutableTask):
                                       source=src,
                                       destination=out_file)
             else:
-                self.transfer_started(task=self.name,
-                                      source=src,
-                                      destination=out_file,
-                                      explanation='non-zero return code')
+                expl = 'could not copy file {0} to {1}'.format(src, out_file)
+                self.transfer_failed(task=self.name,
+                                     source=src,
+                                     destination=out_file,
+                                     explanation=expl)
 
     @property
     def checkpoint(self):

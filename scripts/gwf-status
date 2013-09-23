@@ -131,17 +131,19 @@ def completed(completable):
 
 
 def get_task_status(task):
-    if completed(task):
-        return 'C'
     if failed(task) or failed(task['transfers'].values()):
         return 'F'
+    if completed(task):
+        return 'C'
     return 'R'
 
 
 def get_workflow_status(workflow):
     """Get status of workflow. If any task or transfer of the
     workflow has failed, the entire workflow has failed."""
-    if failed(workflow) or failed(workflow['tasks'].values()):
+    task_failed = any(get_task_status(task) == 'F'
+                      for task in workflow['tasks'].values())
+    if failed(workflow) or task_failed:
         return'F'
     if completed(workflow):
         return 'C'
