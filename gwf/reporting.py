@@ -84,7 +84,7 @@ class ReportReader(object):
         self.workflow['completed_at'] = timestamp
 
     def _workflow_failed(self, timestamp, explanation):
-        self.workflow['failed'] = {
+        self.workflow['failure'] = {
             'timestamp': timestamp,
             'explanation': explanation
         }
