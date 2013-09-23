@@ -130,6 +130,14 @@ def completed(completable):
     return completable['completed_at'] is not None
 
 
+def get_transfer_status(transfer):
+    if failed(transfer):
+        return 'F'
+    if completed(transfer):
+        return 'C'
+    return 'R'
+
+
 def get_task_status(task):
     if failed(task) or failed(task['transfers'].values()):
         return 'F'
@@ -232,12 +240,15 @@ def print_job(job):
 
 def print_transfers(transfers):
     for (src, dst), meta in transfers.iteritems():
-        print " " * 7, bold('source     '), src
-        print " " * 7, bold('destination'), dst
-        print " " * 7, bold('duration   '), get_duration(meta)
+        status = get_transfer_status(meta)
+        print " " * 3, bold('status     '), get_long_colored_status(status)
+        print " " * 3, bold('source     '), src
+        print " " * 3, bold('destination'), dst
+        print " " * 3, bold('duration   '), get_duration(meta)
         if meta['failure']:
-            explanation = red(meta['failure']['explanation'])
-            print " " * 7, bold('failure    '), explanation
+            print
+            print " " * 3, bold(red('failure')), '({0})'.format(meta['failure']['timestamp'])
+            print " " * 7, meta['failure']['explanation']
         print
 
 
