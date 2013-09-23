@@ -31,6 +31,7 @@ template = ' '.join(['qsub',
 
 process = subprocess.Popen(template.format(**vars(args)),
                            shell=True,
-                           stdin=subprocess.PIPE)
+                           stdin=subprocess.PIPE,
+                           cwd=os.getcwd())
 
 process.communicate('gwf-local ' + ' '.join(remainder_args))
