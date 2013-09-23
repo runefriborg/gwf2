@@ -27,6 +27,7 @@ setup(
     scripts=['scripts/gwf',
              'scripts/gwf-local',
              'scripts/gwf-status',
+             'scripts/gwf-clean',
              'scripts/gwf-workflow-graph',
              'scripts/gwf-print-lists',
              'scripts/gwf-print-targets'],
