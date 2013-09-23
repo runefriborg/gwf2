@@ -1,8 +1,286 @@
-import sys
-import pprint
+#!/usr/bin/env python
 
-from gwf.reporting import FileReportReader
+import os
+import os.path
+import json
+import argparse
+import subprocess
+import datetime
 
-r = FileReportReader(sys.argv[1])
-pprint.pprint(r.workflow)
-pprint.pprint(r.tasks)
+from gwf.process import RemoteProcess
+from gwf.reporting import FileReportReader, FileLikeReportReader
+
+from gwf.colors import red, blue, green, bold
+
+GWF_CONFIG_DIR = os.getenv('GWF_CONFIG_DIR', os.path.expanduser('~/.gwf/'))
+
+STATUS_COLORS = {'C': green, 'F': red, 'R': blue}
+
+
+def get_long_colored_status(status):
+    long_status = {'C': 'completed', 'F': 'failed', 'R': 'running'}
+    status_color_func = STATUS_COLORS[status]
+    return status_color_func(long_status[status])
+
+
+def get_short_colored_status(status):
+    return STATUS_COLORS[status](status)
+
+
+def get_job_environment(job):
+    with open(os.path.join(GWF_CONFIG_DIR, 'jobs', job, 'environment')) as f:
+        return json.load(f)
+
+
+def get_job_report(environment, job):
+    """Returns a report reader for a specific job."""
+
+    log_path = os.path.join(GWF_CONFIG_DIR, 'jobs', job, 'log')
+
+    if os.path.exists(log_path):
+        return FileReportReader(log_path)
+
+    # if the log doesn't exist locally, it must still be on the mother node.
+    remote_log_path = os.path.join(environment['scratch_dir'], job, 'log')
+
+    reader = FileLikeReportReader()
+    process = RemoteProcess('cat {0}'.format(remote_log_path),
+                            host=environment['mother_node'],
+                            stdout=subprocess.PIPE)
+
+    process.run()
+
+    for out in process.stdout:
+        reader.write(out)
+    process.wait()
+
+    return reader
+
+
+def get_task_log(environment, job, task_name, log):
+    log_path = os.path.join(GWF_CONFIG_DIR, 'jobs',
+                            job, task_name + '.' + log)
+
+    try:
+        with open(log_path) as log:
+            return log.read()
+    except:
+        # if the log doesn't exist locally, it must still be on
+        # the mother node.
+        remote_log_path = os.path.join(environment['scratch_dir'],
+                                       job, task_name + '.' + log)
+
+        process = RemoteProcess('cat {0} 2> /dev/null || echo'.format(remote_log_path),
+                                host=environment['mother_node'],
+                                stdout=subprocess.PIPE)
+
+        process.run()
+        log = process.stdout.read()
+        process.wait()
+
+        return log
+
+
+def reports(path):
+    def comparator((j1, r1), (j2, r2)):
+        if (r1.workflow['completed_at'] is None and
+                r2.workflow['completed_at'] is None):
+            if j1 == j2:
+                return 0
+            return -1 if j1 < j2 else 1
+        elif r1.workflow['completed_at'] is None:
+            return -1
+        elif r2.workflow['completed_at'] is None:
+            return 1
+        else:
+            if r1.workflow['completed_at'] == r2.workflow['completed_at']:
+                return 0
+            elif r1.workflow['completed_at'] < r2.workflow['completed_at']:
+                return 1
+            else:
+                return -1
+
+    reports = []
+    for job in os.listdir(os.path.join(GWF_CONFIG_DIR, 'jobs')):
+        environment = get_job_environment(job)
+        reports.append((job, get_job_report(environment, job)))
+    return sorted(reports, cmp=comparator)
+
+
+def format_duration(td):
+    hours, remainder = divmod(td.seconds, 3600)
+    minutes, seconds = divmod(remainder, 60)
+    return '{0:03d}:{1:02d}:{2:02d}'.format(hours, minutes, seconds)
+
+
+def failed(failables):
+    """Returns whether or not a failable thing has failed.
+
+    A dict is failable if it contains the key `failure`."""
+    if isinstance(failables, list):
+        return any(failed(failable)
+                   for failable in failables)
+    return bool(failables['failure'])
+
+
+def completed(completable):
+    """Returns whether or not a completable thing has completed.
+
+    A dict is completable if it contains the key `completed_at`."""
+    return completable['completed_at'] is not None
+
+
+def get_task_status(task):
+    if completed(task):
+        return 'C'
+    if failed(task) or failed(task['transfers'].values()):
+        return 'F'
+    return 'R'
+
+
+def get_workflow_status(workflow):
+    """Get status of workflow. If any task or transfer of the
+    workflow has failed, the entire workflow has failed."""
+    if failed(workflow) or failed(workflow['tasks'].values()):
+        return'F'
+    if completed(workflow):
+        return 'C'
+    return 'R'
+
+
+def get_duration(timeable):
+    """Return the duration if a timeable thing.
+
+    A dict is timeable if if contains the properties `started_at`
+    and `completed_at`.
+
+    If the has has completed, use its completion time to
+    compute the duration. Otherwise, just compute how long it has
+    been running."""
+    started_at = timeable['started_at']
+    if timeable['completed_at']:
+        completed_at = timeable['completed_at']
+    else:
+        completed_at = datetime.datetime.today()
+    return format_duration(completed_at - started_at)
+
+
+def print_list():
+    for job, report in reports(os.path.join(GWF_CONFIG_DIR, 'jobs')):
+        workflow_status = get_workflow_status(report.workflow)
+        workflow_duration = get_duration(report.workflow)
+
+        # Compute the number if tasks which have completed.
+        completed_tasks = len([True
+                               for task in report.workflow['tasks'].values()
+                               if task['completed_at'] is not None])
+
+        # Figure out the percentage of completed tasks. If zero tasks
+        # were queued we'll get a ZeroDivisionError, but we just catch
+        # it and use 100%.
+        percentage = 100.0
+        total_tasks = len(report.workflow['queued'])
+        if total_tasks > 0:
+            percentage = completed_tasks / float(total_tasks) * 100.0
+        percentage_str = blue('{0:>3.0f}%'.format(percentage))
+
+        template = '{0} {1} {2} {3} {4} {5} {6}'
+        print template.format(bold(job),
+                              get_long_colored_status(workflow_status),
+                              workflow_duration,
+                              completed_tasks,
+                              len(report.workflow['queued']),
+                              percentage_str,
+                              report.workflow['file'])
+
+
+def print_job(job):
+    environment = get_job_environment(job)
+    report = get_job_report(environment, job)
+
+    workflow_status = get_workflow_status(report.workflow)
+
+    print bold("status    "), get_long_colored_status(workflow_status)
+    print bold("file      "), report.workflow['file']
+    print bold("queued    "), ' '.join(report.workflow['queued'])
+    print bold("started   "), report.workflow['started_at']
+    if report.workflow['completed_at']:
+        print bold("completed "), report.workflow['completed_at']
+    print bold("duration  "), get_duration(report.workflow)
+    print
+    print bold("tasks"), "(running, failed and completed)"
+
+    max_width = max([len(x) for x in report.workflow['tasks'].keys()])
+    template = "    {0} {1} {2}"
+    for task_name, task in report.workflow['tasks'].iteritems():
+        task_status = get_task_status(task)
+        print template.format(bold(task_name.ljust(max_width)),
+                              get_short_colored_status(task_status),
+                              get_duration(task))
+
+
+def print_transfers(transfers):
+    for (src, dst), meta in transfers.iteritems():
+        print " " * 7, bold('source     '), src
+        print " " * 7, bold('destination'), dst
+        print " " * 7, bold('duration   '), get_duration(meta)
+        if meta['failure']:
+            explanation = red(meta['failure']['explanation'])
+            print " " * 7, bold('failure    '), explanation
+        print
+
+
+def print_task(job, task_name):
+    environment = get_job_environment(job)
+    report = get_job_report(environment, job)
+    task = report.workflow['tasks'][task_name]
+
+    status = get_task_status(task)
+    print bold('status    '), get_long_colored_status(status)
+    print bold('started   '), task['started_at']
+    if task['completed_at']:
+        print bold('completed '), task['completed_at']
+    print bold('duration  '), get_duration(task)
+
+    if task['failure']:
+        failure = task['failure']
+        print bold(red('failure')), "({0})".format(failure['timestamp'])
+        print "   ", failure['explanation']
+
+    if task['transfers']:
+        print
+        print bold('transfers')
+        print_transfers(task['transfers'])
+
+    print
+    print bold(blue('stdout'))
+    print get_task_log(environment, job, task_name, 'stdout')
+
+    print bold(red('stderr'))
+    print get_task_log(environment, job, task_name, 'stderr')
+
+
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser()
+    parser.add_argument('-l', '--list', action='store_true',
+                        help='list all previously and currently running jobs')
+    parser.add_argument('-j', '--job',
+                        help='show status for a specific job')
+    parser.add_argument('-t', '--task',
+                        help='show states for a specific task of a job')
+
+    args = parser.parse_args()
+
+    if args.list and (args.task or args.job):
+        parser.error('argument -l/--list: cannot be used with other arguments.')
+    if args.task and not args.job:
+        parser.error('argument -j/--job: required by argument -t/--task.')
+
+    if args.list:
+        print_list()
+    elif args.job and not args.task:
+        print_job(args.job)
+    elif args.job and args.task:
+        print_task(args.job, args.task)
+    else:
+        print_list()

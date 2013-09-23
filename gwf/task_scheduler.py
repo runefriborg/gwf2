@@ -17,8 +17,15 @@ class TaskScheduler(object):
         self.workflow = workflow
         self.scheduler = scheduler
 
-        self.job_dir = os.path.join(self.environment.scratch_dir,
-                                    self.environment.job_id)
+        self.shared_dir = os.path.join(self.environment.config_dir, 'jobs',
+                                       self.environment.job_id)
+
+        self.local_dir = os.path.join(self.environment.scratch_dir,
+                                      self.environment.job_id)
+
+        # write environment file to signal that the job has started and so that
+        # we know where to read stdout/stderr files from.
+        self.environment.dump(os.path.join(self.shared_dir, 'environment'))
 
         # build the dependency graph
         self.graph = DependencyGraph(self.workflow)
@@ -89,7 +96,7 @@ class TaskScheduler(object):
         if not self._dependencies_done(task):
             return
 
-        task.local_wd = os.path.join(self.job_dir, task.name)
+        task.local_wd = os.path.join(self.local_dir, task.name)
 
         # schedule the task
         logging.debug("running task=%s cores=%s cwd=%s code='%s'",
@@ -104,9 +111,9 @@ class TaskScheduler(object):
         remote('mkdir -p {0}'.format(task.local_wd), task.host)
 
         # open files to which we redirect stdout and stderr for the task
-        task.stderr = open(os.path.join(self.job_dir,
+        task.stderr = open(os.path.join(self.local_dir,
                                         task.name + '.stderr'), 'w')
-        task.stdout = open(os.path.join(self.job_dir,
+        task.stdout = open(os.path.join(self.local_dir,
                                         task.name + '.stdout'), 'w')
 
         process = RemoteProcess(task.code.strip(),
@@ -132,8 +139,8 @@ class TaskScheduler(object):
         task.stderr.close()
 
         # move stdout and stderr to shared storage
-        srcs = ' '.join([os.path.join(self.job_dir, task.name + '.stderr'),
-                         os.path.join(self.job_dir, task.name + '.stdout')])
+        srcs = ' '.join([os.path.join(self.local_dir, task.name + '.stdout'),
+                         os.path.join(self.local_dir, task.name + '.stderr')])
         dst = os.path.join(self.environment.config_dir, 'jobs',
                            self.environment.job_id)
 
@@ -198,8 +205,6 @@ class TaskScheduler(object):
                              working_dir=task.local_wd)
 
     def on_workflow_stopped(self):
-        # Move log file from mother node to shared storage and somehow
-        # indicate that the workflow logs have been moved.
         self.reporter.report(reporting.WORKFLOW_COMPLETED)
         self.reporter.finalize()
 
