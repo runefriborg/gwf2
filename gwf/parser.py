@@ -158,7 +158,7 @@ PARSERS = {'target': parse_target,
            }
 
 
-def parse(fname, target_names, run_all):
+def parse(fname):
     '''Parse up the workflow in "fname".'''
 
     working_dir = os.path.dirname(os.path.realpath(fname))
@@ -220,6 +220,4 @@ def parse(fname, target_names, run_all):
                     templates,
                     targets,
                     template_targets,
-                    working_dir,
-                    target_names,
-                    run_all)
+                    working_dir)

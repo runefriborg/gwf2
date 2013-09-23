@@ -15,16 +15,9 @@ parser.add_argument('-f', '--file',
 parser.add_argument('output', nargs='?', default='workflow.dot',
                     help='File to write the workflow graph to.')
 
-group = parser.add_mutually_exclusive_group()
-
-group.add_argument('-a', '--all', default=False, action='store_true',
-                   help='run all end targets in the workflow')
-group.add_argument('-t', '--targets', nargs='+',
-                   help='the target(s) to process.')
-
 args = parser.parse_args()
 
-workflow = parse(args.workflow_file, args.targets, args.all)
+workflow = parse(args.workflow_file)
 graph = DependencyGraph(workflow)
 
 with open(args.output, 'w') as out:
