@@ -1,4 +1,3 @@
-
 from workflow import SystemFile, Target
 
 
@@ -26,16 +25,9 @@ def print_node(node, out):
 
     shape = 'shape = %s' % task_shape(node.task)
 
-    if node.task.should_run:
-        col = 'color = red, style=bold'
-    elif node.should_run:
-        col = 'color = red'
-    else:
-        col = 'color = darkgreen'
-
     print >> out, '"%s"' % node.name,
     print >> out, '[',
-    print >> out, ','.join([shape, col]),
+    print >> out, ','.join([shape, 'color = darkgreen']),
     print >> out, ']',
     print >> out, ';'
 
