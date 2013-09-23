@@ -496,17 +496,15 @@ class Workflow(object):
                  templates,
                  targets,
                  template_targets,
-                 wd,
-                 target_names,
-                 run_all):
+                 wd):
         self.path = path
         self.lists = lists
         self.templates = templates
         self.targets = targets
         self.template_targets = template_targets
         self.working_dir = wd
-        self.target_names = target_names
-        self.run_all = run_all
+
+        self.target_names = []
 
         # handle list transformation...
         for cmd in self.lists.values():
@@ -593,9 +591,3 @@ class Workflow(object):
                     sysfile = SystemFile(input_file, self.working_dir)
                     dependencies.append((input_file, sysfile))
             target.dependencies = dependencies
-
-        # check if all targets that we wish to run have been defined in the
-        # workflow.
-        for target in target_names:
-            if target not in self.targets:
-                raise Exception('target %s not found in workflow.' % target)

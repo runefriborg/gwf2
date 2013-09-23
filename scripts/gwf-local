@@ -1,10 +1,12 @@
 #!/usr/bin/env python
 
 import os
+import sys
 import argparse
 import logging
 
 from gwf.parser import parse
+from gwf.dependency_graph import DependencyGraph
 from gwf.task_scheduler import TaskScheduler
 from gwf.process_scheduler import ProcessScheduler
 from gwf.reporting import FileReporter
@@ -27,7 +29,22 @@ group.add_argument('-t', '--targets', nargs='+',
 args = parser.parse_args()
 
 # parse workflow file
-workflow = parse(args.workflow_file, args.targets, args.all)
+workflow = parse(args.workflow_file)
+
+# If all end targets should be run, we have to figure out what those
+# are and set the target names in the workflow.
+if args.all:
+    graph = DependencyGraph(workflow)
+    workflow.target_names = frozenset(node.task.name
+                                      for node in graph.end_targets)
+else:
+    workflow.target_names = args.targets
+    # check if all targets that we wish to run have been defined in the
+    # workflow.
+    for target in workflow.target_names:
+        if target not in workflow.targets:
+            print >> sys.stderr, 'target %s not found in workflow.' % target
+            sys.exit(1)
 
 # get a suitable environment for this workflow instance.
 environment = get_environment()
