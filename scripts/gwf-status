@@ -210,6 +210,9 @@ def print_job(job):
     print
     print bold("tasks"), "(running, failed and completed)"
 
+    if not report.workflow['tasks']:
+        return
+
     max_width = max([len(x) for x in report.workflow['tasks'].keys()])
     template = "    {0} {1} {2}"
     for task_name, task in report.workflow['tasks'].iteritems():
