@@ -198,24 +198,30 @@ def print_job(job):
     environment = get_job_environment(job)
     report = get_job_report(environment, job)
 
+    workflow = report.workflow
     workflow_status = get_workflow_status(report.workflow)
 
     print bold("status    "), get_long_colored_status(workflow_status)
-    print bold("file      "), report.workflow['file']
+    print bold("file      "), workflow['file']
     print bold("queued    "), ' '.join(report.workflow['queued'])
-    print bold("started   "), report.workflow['started_at']
-    if report.workflow['completed_at']:
-        print bold("completed "), report.workflow['completed_at']
-    print bold("duration  "), get_duration(report.workflow)
-    print
-    print bold("tasks"), "(running, failed and completed)"
+    print bold("started   "), workflow['started_at']
+    if workflow['completed_at']:
+        print bold("completed "), workflow['completed_at']
+    print bold("duration  "), get_duration(workflow)
+    if workflow['failure']:
+        print
+        failure = workflow['failure']
+        print bold(red('failure')), "({0})".format(failure['timestamp'])
+        print "   ", failure['explanation']
 
-    if not report.workflow['tasks']:
+    if not workflow['tasks']:
         return
 
-    max_width = max([len(x) for x in report.workflow['tasks'].keys()])
+    print
+    print bold("tasks"), "(running, failed and completed)"
+    max_width = max([len(x) for x in workflow['tasks'].keys()])
     template = "    {0} {1} {2}"
-    for task_name, task in report.workflow['tasks'].iteritems():
+    for task_name, task in workflow['tasks'].iteritems():
         task_status = get_task_status(task)
         print template.format(bold(task_name.ljust(max_width)),
                               get_short_colored_status(task_status),
