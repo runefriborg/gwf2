@@ -3,6 +3,7 @@ import os.path
 import json
 import time
 import datetime
+import shutil
 
 WORKFLOW_STARTED = 'WORKFLOW_STARTED'
 WORKFLOW_COMPLETED = 'WORKFLOW_COMPLETED'
@@ -171,4 +172,6 @@ class FileReporter(Reporter):
             f.write('\n')
 
     def finalize(self):
-        os.rename(self.tmp_file, self.final_file)
+        # using shutil.move instead of os.rename to avoid
+        # "Invalid cross-device link" exception.
+        shutil.move(self.tmp_file, self.final_file)
