@@ -102,6 +102,8 @@ def reports(path):
                 return -1
 
     reports = []
+    if not os.path.exists(os.path.join(GWF_CONFIG_DIR, 'jobs')):
+        return []
     for job in os.listdir(os.path.join(GWF_CONFIG_DIR, 'jobs')):
         environment = get_job_environment(job)
         reports.append((job, get_job_report(environment, job)))
