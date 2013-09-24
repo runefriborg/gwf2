@@ -29,7 +29,7 @@ group.add_argument('-t', '--targets', nargs='+',
 args = parser.parse_args()
 
 # parse workflow file
-workflow = parse(args.workflow_file)
+workflow = parse(os.path.join(os.getcwd(), args.workflow_file))
 
 # If all end targets should be run, we have to figure out what those
 # are and set the target names in the workflow.

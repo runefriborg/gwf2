@@ -24,13 +24,14 @@ parser.add_argument('-q', '--queue-name', default=GWF_DEFAULT_QUEUE,
 args, remainder_args = parser.parse_known_args()
 
 template = ' '.join(['qsub',
-                    '-N {name}',
-                    '-q {queue_name}',
-                    '-l nodes={max_nodes}:ppn=16',
-                    '-l walltime={walltime}'])
+                     '-N {name}',
+                     '-q {queue_name}',
+                     '-l nodes={max_nodes}:ppn=16',
+                     '-l walltime={walltime}'])
 
 process = subprocess.Popen(template.format(**vars(args)),
                            shell=True,
-                           stdin=subprocess.PIPE)
+                           stdin=subprocess.PIPE,
+                           cwd=os.getcwd())
 
 process.communicate('gwf-local ' + ' '.join(remainder_args))
