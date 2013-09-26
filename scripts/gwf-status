@@ -42,7 +42,7 @@ def get_job_report(environment, job):
         return FileReportReader(log_path)
 
     # if the log doesn't exist locally, it must still be on the mother node.
-    remote_log_path = os.path.join(environment['scratch_dir'], job, 'log')
+    remote_log_path = os.path.join(environment['scratch_dir'], 'log')
 
     reader = FileLikeReportReader()
     process = RemoteProcess('cat {0}'.format(remote_log_path),

@@ -11,11 +11,6 @@ class Environment(object):
                   'config_dir', 'mother_node']
 
     @property
-    def scratch_dir(self):
-        return os.getenv('GWF_SCRATCH',
-                         os.path.join(os.path.expanduser('~'), '/scratch/'))
-
-    @property
     def config_dir(self):
         return os.getenv('GWF_CONFIG_DIR',
                          os.path.expanduser('~/.gwf/'))
@@ -50,6 +45,10 @@ class RealEnvironment(Environment):
     def job_id(self):
         return os.environ['PBS_JOBID']
 
+    @property
+    def scratch_dir(self):
+        return os.path.join(os.getenv('GWF_SCRATCH', '/scratch/'), self.job_id)
+
 
 class FakeEnvironment(Environment):
 
@@ -69,6 +68,14 @@ class FakeEnvironment(Environment):
         cores = multiprocessing.cpu_count()
         self.nodes = {platform.node(): cores}
 
+    @property
+    def scratch_dir(self):
+
+        user_scratch_dir = os.path.join(os.getenv('GWF_SCRATCH', os.path.join(os.path.expanduser('~'), ".gwf-scratch")), self.job_id)
+        if not os.path.isdir(user_scratch_dir):
+            os.makedirs(user_scratch_dir)
+
+        return user_scratch_dir
 
 def get_environment():
     # by default, we use a fake environment unless we figure out that there is
