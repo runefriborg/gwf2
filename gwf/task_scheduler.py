@@ -21,8 +21,7 @@ class TaskScheduler(object):
         self.shared_dir = os.path.join(self.environment.config_dir, 'jobs',
                                        self.environment.job_id)
 
-        self.local_dir = os.path.join(self.environment.scratch_dir,
-                                      self.environment.job_id)
+        self.local_dir = self.environment.scratch_dir
 
         # write environment file to signal that the job has started and so that
         # we know where to read stdout/stderr files from.

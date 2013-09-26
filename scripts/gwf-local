@@ -52,7 +52,7 @@ logging.debug(environment)
 
 # initialize file reporter such that it writes the log file to local
 # storage (scratch) until the reporter is finalized.
-local_dir = os.path.join(environment.scratch_dir, environment.job_id)
+local_dir = environment.scratch_dir
 shared_dir = os.path.join(environment.config_dir, 'jobs', environment.job_id)
 
 reporter = FileReporter(tmp_dir=local_dir, final_dir=shared_dir)
