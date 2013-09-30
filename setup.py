@@ -25,7 +25,6 @@ setup(
 
     packages=['gwf', 'tests'],
     scripts=['scripts/gwf',
-             'scripts/gwf-local',
              'scripts/gwf-status',
              'scripts/gwf-clean',
              'scripts/gwf-workflow-graph',
