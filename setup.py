@@ -28,8 +28,7 @@ setup(
              'scripts/gwf-status',
              'scripts/gwf-clean',
              'scripts/gwf-workflow-graph',
-             'scripts/gwf-print-lists',
-             'scripts/gwf-print-targets'],
+             'scripts/gwf-print-lists'],
 
     test_suite='tests',
 
