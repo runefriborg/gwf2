@@ -23,6 +23,9 @@ GWF_DEFAULT_QUEUE = os.getenv('GWF_DEFAULT_QUEUE', 'normal')
 
 GWF_CONFIG_DIR = os.getenv('GWF_CONFIG_DIR', os.path.expanduser('~/.gwf/'))
 
+if os.getenv('GWF_DEBUG', False):
+    logging.basicConfig(level=logging.DEBUG)
+
 parser = argparse.ArgumentParser(description='Run a gwf workflow, locally or through submitting the tasks to an OpenPBS scheduler.')
 
 #optgroup = parser.add_argument_group('optional arguments')
@@ -78,13 +81,18 @@ gwf --local '''+' '.join(sys.argv[1:])+'''
                                    stderr=subprocess.PIPE)
 
         stdout, stderr = process.communicate(complete_script)
-        if not stdout.endswith('.in'):
+        if not stdout.strip().endswith('.in'):
+            print stdout
             print stderr
             sys.exit(1)
 
         job_id = stdout.strip()
-        with open(os.path.join(GWF_CONFIG_DIR, 'jobs', job_id), 'w') as fp:
-            json.dump(fp, {'job_id': job_id})
+
+        shared_dir = os.path.join(GWF_CONFIG_DIR, 'jobs', job_id)
+        os.makedirs(shared_dir)
+        with open(os.path.join(shared_dir, 'environment'), 'w') as fp:
+            json.dump({'job_id': job_id}, fp)
+        print job_id
 
     sys.exit(0)
 
@@ -123,15 +131,9 @@ logging.debug(environment)
 
 shared_dir = os.path.join(environment.config_dir, 'jobs', environment.job_id)
 
-# write environment file to signal that the job has started and so that
-# we know where to read stdout/stderr files from.
-environment.dump(os.path.join(shared_dir, 'environment'))
-
 # initialize file reporter such that it writes the log file to local
 # storage (scratch) until the reporter is finalized.
-local_dir = environment.scratch_dir
-
-reporter = FileReporter(tmp_dir=local_dir, final_dir=shared_dir)
+reporter = FileReporter(tmp_dir=environment.scratch_dir, final_dir=shared_dir)
 reporter.report(gwf.reporting.WORKFLOW_QUEUED)
 
 # initialize a scheduler for the workflow and start the run loop.
