@@ -183,7 +183,7 @@ def print_list():
         workflow_status = get_workflow_status(report.workflow)
         workflow_duration = get_duration(report.workflow)
 
-        # Compute the number if tasks which have completed.
+        # Compute the number of tasks which have completed.
         completed_tasks = len([True
                                for task in report.workflow['tasks'].values()
                                if task['completed_at'] is not None])
