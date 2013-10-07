@@ -43,16 +43,15 @@ def get_job_environment(job):
 def get_job_report(environment, job):
     """Returns a report reader for a specific job."""
 
-    print environment
-    if environment is None:
+    # if scratch_dir has not been written to the environment yet, the job
+    # has been queued, but is not running.
+    if not 'scratch_dir' in environment:
         return None
 
     log_path = os.path.join(GWF_CONFIG_DIR, 'jobs', job, 'log')
 
     if os.path.exists(log_path):
         return FileReportReader(log_path)
-
-    logging.debug(environment)
 
     # if the log doesn't exist locally, it must still be on the mother node.
     remote_log_path = os.path.join(environment['scratch_dir'], 'log')
@@ -68,7 +67,11 @@ def get_job_report(environment, job):
 
     for out in process.stdout:
         reader.write(out)
+
     process.wait()
+
+    if process.returncode != 0:
+        return None
 
     return reader
 
