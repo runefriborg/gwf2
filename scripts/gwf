@@ -6,6 +6,8 @@ import argparse
 import subprocess
 import logging
 
+import gwf.reporting
+
 from gwf.parser import parse
 from gwf.dependency_graph import DependencyGraph
 from gwf.task_scheduler import TaskScheduler
@@ -113,6 +115,7 @@ local_dir = environment.scratch_dir
 shared_dir = os.path.join(environment.config_dir, 'jobs', environment.job_id)
 
 reporter = FileReporter(tmp_dir=local_dir, final_dir=shared_dir)
+reporter.report(gwf.reporting.WORKFLOW_QUEUED)
 
 # initialize a scheduler for the workflow and start the run loop.
 scheduler = TaskScheduler(environment,
