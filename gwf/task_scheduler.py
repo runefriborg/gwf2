@@ -23,10 +23,6 @@ class TaskScheduler(object):
 
         self.local_dir = self.environment.scratch_dir
 
-        # write environment file to signal that the job has started and so that
-        # we know where to read stdout/stderr files from.
-        self.environment.dump(os.path.join(self.shared_dir, 'environment'))
-
         # build the dependency graph
         self.graph = DependencyGraph(self.workflow)
 
