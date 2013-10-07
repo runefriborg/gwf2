@@ -11,11 +11,11 @@ import datetime
 from gwf.process import RemoteProcess
 from gwf.reporting import FileReportReader, FileLikeReportReader
 
-from gwf.colors import red, blue, green, bold
+from gwf.colors import red, blue, green, yellow, bold
 
 GWF_CONFIG_DIR = os.getenv('GWF_CONFIG_DIR', os.path.expanduser('~/.gwf/'))
 
-STATUS_COLORS = {'C': green, 'F': red, 'R': blue}
+STATUS_COLORS = {'C': green, 'F': red, 'R': blue, 'Q': yellow}
 
 
 def get_long_colored_status(status):
@@ -133,6 +133,10 @@ def completed(completable):
     return completable['completed_at'] is not None
 
 
+def queued(queable):
+    return queable['queued_at'] is not None and queable['started_at'] is None
+
+
 def get_transfer_status(transfer):
     if failed(transfer):
         return 'F'
@@ -158,6 +162,8 @@ def get_workflow_status(workflow):
         return'F'
     if completed(workflow):
         return 'C'
+    if queued(workflow):
+        return 'Q'
     return 'R'
 
 
