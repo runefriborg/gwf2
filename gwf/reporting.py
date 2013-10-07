@@ -5,6 +5,7 @@ import time
 import datetime
 import shutil
 
+WORKFLOW_QUEUED = 'WORKFLOW_QUEUED'
 WORKFLOW_STARTED = 'WORKFLOW_STARTED'
 WORKFLOW_COMPLETED = 'WORKFLOW_COMPLETED'
 WORKFLOW_FAILED = 'WORKFLOW_FAILED'
@@ -16,6 +17,7 @@ TRANSFER_COMPLETED = 'TRANSFER_COMPLETED'
 TRANSFER_FAILED = 'TRANSFER_FAILED'
 
 EVENT_TYPES = {
+    WORKFLOW_QUEUED,
     WORKFLOW_STARTED,
     WORKFLOW_COMPLETED,
     WORKFLOW_FAILED,
@@ -50,6 +52,7 @@ class ReportReader(object):
         # keeps track of the state of the workflow
         self.workflow = {
             'completed_at': None,
+            'queued_at': None,
             'started_at': None,
             'file': None,
             'queued': [],
@@ -59,6 +62,7 @@ class ReportReader(object):
         }
 
         self.handlers = {
+            WORKFLOW_QUEUED: self._workflow_queued,
             WORKFLOW_STARTED: self._workflow_started,
             WORKFLOW_COMPLETED: self._workflow_completed,
             WORKFLOW_FAILED: self._workflow_failed,
@@ -74,6 +78,9 @@ class ReportReader(object):
         timestamp, event, data = report
         self.handlers[event](
             datetime.datetime.fromtimestamp(timestamp), **data)
+
+    def _workflow_queued(self, timestamp):
+        self.workflow['queued_at'] = timestamp
 
     def _workflow_started(self, timestamp, file, queued, nodes):
         self.workflow['queued'] = queued
