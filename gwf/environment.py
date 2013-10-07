@@ -73,12 +73,15 @@ class FakeEnvironment(Environment):
 
     @property
     def scratch_dir(self):
-
-        user_scratch_dir = os.path.join(os.getenv('GWF_SCRATCH', os.path.join(os.path.expanduser('~'), ".gwf-scratch")), self.job_id)
+        user_scratch_dir = os.path.join(os.getenv('GWF_SCRATCH',
+                                        os.path.join(os.path.expanduser('~'),
+                                                     ".gwf-scratch")),
+                                        self.job_id)
         if not os.path.isdir(user_scratch_dir):
             os.makedirs(user_scratch_dir)
 
         return user_scratch_dir
+
 
 def get_environment():
     # by default, we use a fake environment unless we figure out that there is
