@@ -23,10 +23,6 @@ class TaskScheduler(object):
 
         self.local_dir = self.environment.scratch_dir
 
-        # write environment file to signal that the job has started and so that
-        # we know where to read stdout/stderr files from.
-        self.environment.dump(os.path.join(self.shared_dir, 'environment'))
-
         # build the dependency graph
         self.graph = DependencyGraph(self.workflow)
 
@@ -52,6 +48,10 @@ class TaskScheduler(object):
                              file=self.workflow.path,
                              queued=[task.name for task in self.missing],
                              nodes=self.environment.nodes.keys())
+
+        # write environment file to signal that the job has started and so that
+        # we know where to read stdout/stderr files from.
+        self.environment.dump(os.path.join(self.shared_dir, 'environment'))
 
         # Check if all scheduled tasks request a valid amount of resources
         # (in this case, cpu cores)... This check is not complete, since we

@@ -5,6 +5,9 @@ import sys
 import argparse
 import subprocess
 import logging
+import json
+
+import gwf.reporting
 
 from gwf.parser import parse
 from gwf.dependency_graph import DependencyGraph
@@ -18,6 +21,12 @@ GWF_DEFAULT_MAX_NODES = int(os.getenv('GWF_DEFAULT_MAX_NODES', '2'))
 GWF_DEFAULT_WALLTIME = os.getenv('GWF_DEFAULT_WALLTIME', '48:0:0')
 GWF_DEFAULT_QUEUE = os.getenv('GWF_DEFAULT_QUEUE', 'normal')
 
+GWF_CONFIG_DIR = os.getenv('GWF_CONFIG_DIR', os.path.expanduser('~/.gwf/'))
+
+if os.getenv('GWF_DEBUG', False):
+    logging.basicConfig(level=logging.DEBUG)
+else:
+    logging.basicConfig(level=logging.CRITICAL)
 
 parser = argparse.ArgumentParser(description='Run a gwf workflow, locally or through submitting the tasks to an OpenPBS scheduler.')
 
@@ -68,10 +77,24 @@ gwf --local '''+' '.join(sys.argv[1:])+'''
         print(complete_script)
     else:
         process = subprocess.Popen("qsub",
-                               shell=True,
-                               stdin=subprocess.PIPE)
+                                   shell=True,
+                                   stdin=subprocess.PIPE,
+                                   stdout=subprocess.PIPE,
+                                   stderr=subprocess.PIPE)
 
-        process.communicate(complete_script)
+        stdout, stderr = process.communicate(complete_script)
+        if not stdout.strip().endswith('.in'):
+            print stdout
+            print stderr
+            sys.exit(1)
+
+        job_id = stdout.strip()
+
+        shared_dir = os.path.join(GWF_CONFIG_DIR, 'jobs', job_id)
+        os.makedirs(shared_dir)
+        with open(os.path.join(shared_dir, 'environment'), 'w') as fp:
+            json.dump({'job_id': job_id}, fp)
+        print job_id
 
     sys.exit(0)
 
@@ -103,16 +126,17 @@ else:
             print >> sys.stderr, 'target %s not found in workflow.' % target
             sys.exit(1)
 
+
 # get a suitable environment for this workflow instance.
 environment = get_environment()
 logging.debug(environment)
 
-# initialize file reporter such that it writes the log file to local
-# storage (scratch) until the reporter is finalized.
-local_dir = environment.scratch_dir
 shared_dir = os.path.join(environment.config_dir, 'jobs', environment.job_id)
 
-reporter = FileReporter(tmp_dir=local_dir, final_dir=shared_dir)
+# initialize file reporter such that it writes the log file to local
+# storage (scratch) until the reporter is finalized.
+reporter = FileReporter(tmp_dir=environment.scratch_dir, final_dir=shared_dir)
+reporter.report(gwf.reporting.WORKFLOW_QUEUED)
 
 # initialize a scheduler for the workflow and start the run loop.
 scheduler = TaskScheduler(environment,

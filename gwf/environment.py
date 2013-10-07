@@ -2,6 +2,7 @@ import os
 import os.path
 import time
 import platform
+import logging
 import json
 
 
@@ -25,6 +26,8 @@ class Environment(object):
                                                     for p in Environment.PROPERTIES}))
 
     def dump(self, path):
+        logging.debug('dumping environment to {0}'.format(path))
+        logging.debug('environment is {0}'.format(repr(self)))
         obj = {p: self.__getattribute__(p) for p in Environment.PROPERTIES}
         with open(path, 'w') as f:
             json.dump(obj, f)
@@ -70,12 +73,15 @@ class FakeEnvironment(Environment):
 
     @property
     def scratch_dir(self):
-
-        user_scratch_dir = os.path.join(os.getenv('GWF_SCRATCH', os.path.join(os.path.expanduser('~'), ".gwf-scratch")), self.job_id)
+        user_scratch_dir = os.path.join(os.getenv('GWF_SCRATCH',
+                                        os.path.join(os.path.expanduser('~'),
+                                                     ".gwf-scratch")),
+                                        self.job_id)
         if not os.path.isdir(user_scratch_dir):
             os.makedirs(user_scratch_dir)
 
         return user_scratch_dir
+
 
 def get_environment():
     # by default, we use a fake environment unless we figure out that there is

@@ -4,7 +4,10 @@ import json
 import time
 import datetime
 import shutil
+import platform
+import logging
 
+WORKFLOW_QUEUED = 'WORKFLOW_QUEUED'
 WORKFLOW_STARTED = 'WORKFLOW_STARTED'
 WORKFLOW_COMPLETED = 'WORKFLOW_COMPLETED'
 WORKFLOW_FAILED = 'WORKFLOW_FAILED'
@@ -16,6 +19,7 @@ TRANSFER_COMPLETED = 'TRANSFER_COMPLETED'
 TRANSFER_FAILED = 'TRANSFER_FAILED'
 
 EVENT_TYPES = {
+    WORKFLOW_QUEUED,
     WORKFLOW_STARTED,
     WORKFLOW_COMPLETED,
     WORKFLOW_FAILED,
@@ -50,6 +54,7 @@ class ReportReader(object):
         # keeps track of the state of the workflow
         self.workflow = {
             'completed_at': None,
+            'queued_at': None,
             'started_at': None,
             'file': None,
             'queued': [],
@@ -59,6 +64,7 @@ class ReportReader(object):
         }
 
         self.handlers = {
+            WORKFLOW_QUEUED: self._workflow_queued,
             WORKFLOW_STARTED: self._workflow_started,
             WORKFLOW_COMPLETED: self._workflow_completed,
             WORKFLOW_FAILED: self._workflow_failed,
@@ -74,6 +80,9 @@ class ReportReader(object):
         timestamp, event, data = report
         self.handlers[event](
             datetime.datetime.fromtimestamp(timestamp), **data)
+
+    def _workflow_queued(self, timestamp):
+        self.workflow['queued_at'] = timestamp
 
     def _workflow_started(self, timestamp, file, queued, nodes):
         self.workflow['queued'] = queued
@@ -166,6 +175,7 @@ class FileReporter(Reporter):
         if not event in EVENT_TYPES:
             raise Exception('event %s not supported.')
 
+        logging.debug('writing log to {0} on host {1}'.format(self.tmp_file, platform.node()))
         with open(self.tmp_file, 'a') as f:
             json.dump((time.time(), event, data), f,
                       separators=(',', ':'))
@@ -174,4 +184,4 @@ class FileReporter(Reporter):
     def finalize(self):
         # using shutil.move instead of os.rename to avoid
         # "Invalid cross-device link" exception.
-        shutil.move(self.tmp_file, self.final_file)
+        shutil.copyfile(self.tmp_file, self.final_file)
