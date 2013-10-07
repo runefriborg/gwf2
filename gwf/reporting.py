@@ -4,6 +4,8 @@ import json
 import time
 import datetime
 import shutil
+import platform
+import logging
 
 WORKFLOW_QUEUED = 'WORKFLOW_QUEUED'
 WORKFLOW_STARTED = 'WORKFLOW_STARTED'
@@ -173,6 +175,7 @@ class FileReporter(Reporter):
         if not event in EVENT_TYPES:
             raise Exception('event %s not supported.')
 
+        logging.debug('writing log to {0} on host {1}'.format(self.tmp_file, platform.node()))
         with open(self.tmp_file, 'a') as f:
             json.dump((time.time(), event, data), f,
                       separators=(',', ':'))
@@ -181,4 +184,4 @@ class FileReporter(Reporter):
     def finalize(self):
         # using shutil.move instead of os.rename to avoid
         # "Invalid cross-device link" exception.
-        shutil.move(self.tmp_file, self.final_file)
+        shutil.copyfile(self.tmp_file, self.final_file)

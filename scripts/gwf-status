@@ -7,6 +7,7 @@ import json
 import argparse
 import subprocess
 import datetime
+import logging
 
 from gwf.process import RemoteProcess
 from gwf.reporting import FileReportReader, FileLikeReportReader
@@ -17,9 +18,13 @@ GWF_CONFIG_DIR = os.getenv('GWF_CONFIG_DIR', os.path.expanduser('~/.gwf/'))
 
 STATUS_COLORS = {'C': green, 'F': red, 'R': blue, 'Q': yellow}
 
+if os.getenv('GWF_DEBUG', False):
+    logging.basicConfig(level=logging.DEBUG)
+
 
 def get_long_colored_status(status):
-    long_status = {'C': 'completed', 'F': 'failed', 'R': 'running'}
+    long_status = {'C': 'completed', 'F': 'failed',
+                   'R': 'running', 'Q': 'queued'}
     status_color_func = STATUS_COLORS[status]
     return status_color_func(long_status[status])
 
@@ -30,21 +35,31 @@ def get_short_colored_status(status):
 
 def get_job_environment(job):
     with open(os.path.join(GWF_CONFIG_DIR, 'jobs', job, 'environment')) as f:
-        return json.load(f)
+        env = json.load(f)
+        print job, env
+        return env
 
 
 def get_job_report(environment, job):
     """Returns a report reader for a specific job."""
+
+    print environment
+    if environment is None:
+        return None
 
     log_path = os.path.join(GWF_CONFIG_DIR, 'jobs', job, 'log')
 
     if os.path.exists(log_path):
         return FileReportReader(log_path)
 
+    logging.debug(environment)
+
     # if the log doesn't exist locally, it must still be on the mother node.
     remote_log_path = os.path.join(environment['scratch_dir'], 'log')
 
     reader = FileLikeReportReader()
+
+    logging.debug('fetch log file from {0}'.format(environment['mother_node']))
     process = RemoteProcess('cat {0}'.format(remote_log_path),
                             host=environment['mother_node'],
                             stdout=subprocess.PIPE)
@@ -84,6 +99,10 @@ def get_task_log(environment, job, task_name, log):
 
 def reports(path):
     def comparator((j1, r1), (j2, r2)):
+        if r1 is None:
+            return -1
+        if r2 is None:
+            return 1
         if (r1.workflow['completed_at'] is None and
                 r2.workflow['completed_at'] is None):
             if j1 == j2:
@@ -186,6 +205,13 @@ def get_duration(timeable):
 
 def print_list():
     for job, report in reports(os.path.join(GWF_CONFIG_DIR, 'jobs')):
+        # if there is no report, the job has just been queued, but no log file
+        # has been written yet.
+        if report is None:
+            print bold(job), get_long_colored_status('Q')
+            continue
+
+        logging.debug(report.workflow)
         workflow_status = get_workflow_status(report.workflow)
         workflow_duration = get_duration(report.workflow)
 

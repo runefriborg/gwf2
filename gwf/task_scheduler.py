@@ -49,6 +49,10 @@ class TaskScheduler(object):
                              queued=[task.name for task in self.missing],
                              nodes=self.environment.nodes.keys())
 
+        # write environment file to signal that the job has started and so that
+        # we know where to read stdout/stderr files from.
+        self.environment.dump(os.path.join(self.shared_dir, 'environment'))
+
         # Check if all scheduled tasks request a valid amount of resources
         # (in this case, cpu cores)... This check is not complete, since we
         # do not know how many tasks will run at once (a lot of tasks could

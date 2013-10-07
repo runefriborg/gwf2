@@ -2,6 +2,7 @@ import os
 import os.path
 import time
 import platform
+import logging
 import json
 
 
@@ -25,6 +26,8 @@ class Environment(object):
                                                     for p in Environment.PROPERTIES}))
 
     def dump(self, path):
+        logging.debug('dumping environment to {0}'.format(path))
+        logging.debug('environment is {0}'.format(repr(self)))
         obj = {p: self.__getattribute__(p) for p in Environment.PROPERTIES}
         with open(path, 'w') as f:
             json.dump(obj, f)
