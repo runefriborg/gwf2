@@ -68,8 +68,8 @@ gwf --local '''+' '.join(sys.argv[1:])+'''
         print(complete_script)
     else:
         process = subprocess.Popen("qsub",
-                               shell=True,
-                               stdin=subprocess.PIPE)
+                                   shell=True,
+                                   stdin=subprocess.PIPE)
 
         process.communicate(complete_script)
 
