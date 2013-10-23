@@ -129,8 +129,32 @@ class DependencyGraph(object):
         for root in roots:
             dfs(root, root)
 
-    def schedule(self, target_name):
-        root = self.nodes[target_name]
+    def tasklist(self, target_names):
+        roots = [self.nodes[target_name] for target_name in target_names]
+        processed = set()
+        tasks = []
+
+        def dfs(node):
+            if node in processed or not node.task.can_execute:
+                return
+
+            processed.add(node)
+            tasks.append(node.task)
+
+            for _, dep in node.dependencies:
+                dfs(dep)
+
+        for root in roots:
+            dfs(root)
+
+        # Put tasks in optimal order
+        tasks.reverse()
+
+        return tasks
+
+
+    def schedule(self, target_names):
+        roots = [self.nodes[target_name] for target_name in target_names]
         end_targets = self.workflow.target_names
 
         def files_exist(files):
@@ -139,14 +163,14 @@ class DependencyGraph(object):
         def is_oldest(task):
             age_of_oldest_output_file = age_of_oldest_file(task.output)
 
-            def dfs(root):
-                if root.checkpoint or root.name in end_targets:
-                    if not files_exist(root.output):
+            def dfs(node_task):
+                if node_task.checkpoint or node_task.name in end_targets:
+                    if not files_exist(node_task.output):
                         return False
-                    if age_of_newest_file(root.output) > age_of_oldest_output_file:
+                    if age_of_newest_file(node_task.output) > age_of_oldest_output_file:
                         return False
                 return all(dfs(dependency)
-                           for _, dependency in root.dependencies)
+                           for _, dependency in node_task.dependencies)
 
             return dfs(task)
 
@@ -167,5 +191,10 @@ class DependencyGraph(object):
             for _, dep in node.dependencies:
                 dfs(dep)
 
-        dfs(root)
+        for root in roots:
+            dfs(root)
+
+        # Put tasks in optimal order
+        schedule.reverse()
+
         return schedule

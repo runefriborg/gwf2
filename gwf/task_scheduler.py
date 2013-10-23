@@ -32,20 +32,16 @@ class TaskScheduler(object):
 
         # For every target name specified by the user, compute its dependencies
         # and build a list of all tasks which must be run. self.schedule no
-        # longer corresponds to the topological sorting of the tasks, but is
-        # just a list of all tasks that must be run. The scheduler will figure
-        # out the correct order to run them in.
-        targets = [workflow.targets[target_name]
-                   for target_name in workflow.target_names]
-
-        self.schedule = frozenset(*(self.graph.schedule(target.name)
-                                    for target in targets))
+        # returns topological sorting of the tasks, to help the scheduler with
+        # less searching for tasks to run. The scheduler will figure
+        # out the correct order to run tasks in.
+        self.schedule = self.graph.schedule(workflow.target_names)
 
         # Build a list of all the jobs that have not been completed yet.
         # Jobs should be removed from this list when they have completed.
-        self.missing = set(self.schedule)
+        self.missing = self.schedule
 
-        # This list contains all the running jobs.
+        # This set contains all the running jobs.
         self.running = set()
 
         self.reporter.report(reporting.WORKFLOW_STARTED,
