@@ -31,6 +31,11 @@ setup(
              'scripts/gwf-print-lists',
              'scripts/gwf-print-targets'],
 
+    include_package_data=True,
+    package_data={
+        'gwf': ['templates/*.plot']
+    },
+
     test_suite='tests',
 
     classifiers=[
