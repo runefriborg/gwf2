@@ -14,7 +14,7 @@ import gwf
 GWF_PATH = gwf.__file__
 
 from gwf.process import RemoteProcess
-from gwf.reporting import FileReportReader, FileLikeReportReader
+from gwf.reporting import ReportReader
 
 from gwf.colors import red, blue, green, yellow, bold
 
@@ -42,12 +42,11 @@ def get_short_colored_status(status):
 def get_job_environment(job):
     with open(os.path.join(GWF_CONFIG_DIR, 'jobs', job, 'environment')) as f:
         env = json.load(f)
-        print job, env
         return env
 
 
 def get_job_report(environment, job):
-    """Returns a report reader for a specific job."""
+    """Fills up a reader for a specific job."""
 
     # if scratch_dir has not been written to the environment yet, the job
     # has been queued, but is not running.
@@ -57,12 +56,10 @@ def get_job_report(environment, job):
     log_path = os.path.join(GWF_CONFIG_DIR, 'jobs', job, 'log')
 
     if os.path.exists(log_path):
-        return FileReportReader(log_path)
+        return ReportReader(log_path)
 
     # if the log doesn't exist locally, it must still be on the mother node.
     remote_log_path = os.path.join(environment['scratch_dir'], 'log')
-
-    reader = FileLikeReportReader()
 
     logging.debug('fetch log file from {0}'.format(environment['mother_node']))
     process = RemoteProcess('cat {0}'.format(remote_log_path),
@@ -71,6 +68,7 @@ def get_job_report(environment, job):
 
     process.run()
 
+    reader = ReportReader()
     for out in process.stdout:
         reader.write(out)
 
