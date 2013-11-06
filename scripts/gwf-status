@@ -354,7 +354,7 @@ def plot_job(job):
         for task_name in workflow['queued']:
             if task_name not in workflow['tasks']:
                 # task is still queued.
-                print >> file_obj, 0, 0, 0
+                print >> file_obj, task_name, 0, 0, 0
             else:
                 # task either failed, completed or is still running
                 task = workflow['tasks'][task_name]
@@ -369,7 +369,7 @@ def plot_job(job):
 
                 min_y = task['started_at'] - workflow_start_time
                 max_y = completed_time - workflow_start_time
-                print >> file_obj, 0, \
+                print >> file_obj, task_name, 0, \
                     min_y.total_seconds() / 3600, \
                     max_y.total_seconds() / 3600
 
