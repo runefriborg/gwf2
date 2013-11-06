@@ -337,7 +337,7 @@ def print_task(job, task_name):
     print get_task_log(environment, job, task_name, 'stderr')
 
 
-def plot_job(job):
+def plot(job, kind):
     try:
         environment = get_job_environment(job)
         report = get_job_report(environment, job)
@@ -345,47 +345,79 @@ def plot_job(job):
         print >> sys.stderr, "error: job does not exist or has not been started yet."
         sys.exit(1)
 
+    with tempfile.NamedTemporaryFile() as out:
+        func, template = PLOTS[kind]
+        func(out, job, report)
+
+        # flush the output stream to disk
+        out.flush()
+
+        # get path to plot template
+        template_path = os.path.join(os.path.dirname(GWF_PATH),
+                                     'templates', template + '.plot')
+        print template_path
+        # now that we have written the data file, we must plot it with gnuplot
+        call_template = 'gnuplot -e "infile=\'{0}\'; outfile=\'{1}\'" {2}'
+        subprocess.call(call_template.format(out.name,
+                                             template + '.png',
+                                             template_path),
+                        cwd=os.getcwd(),
+                        shell=True)
+
+
+def plot_timeline(out, job, report):
     workflow = report.workflow
     workflow_start_time = workflow['started_at']
+    for task_name in workflow['queued']:
+        if task_name not in workflow['tasks']:
+            # task is still queued.
+            print >> out, task_name, 0, 0, 0
+        else:
+            # task either failed, completed or is still running
+            task = workflow['tasks'][task_name]
+            status = get_task_status(task)
 
-    with tempfile.NamedTemporaryFile() as file_obj:
-        for task_name in workflow['queued']:
-            if task_name not in workflow['tasks']:
-                # task is still queued.
-                print >> file_obj, task_name, 0, 0, 0
+            if status == 'R':
+                completed_time = datetime.datetime.now()
+            elif status == 'C':
+                completed_time = task['completed_at']
             else:
-                # task either failed, completed or is still running
-                task = workflow['tasks'][task_name]
-                status = get_task_status(task)
+                completed_time = task['failure']['timestamp']
 
-                if status == 'R':
-                    completed_time = datetime.datetime.now()
-                elif status == 'C':
-                    completed_time = task['completed_at']
-                else:
-                    completed_time = task['failure']['timestamp']
+            min_y = task['started_at'] - workflow_start_time
+            max_y = completed_time - workflow_start_time
+            print >> out, task_name, 0, \
+                min_y.total_seconds() / 3600, \
+                max_y.total_seconds() / 3600
 
-                min_y = task['started_at'] - workflow_start_time
-                max_y = completed_time - workflow_start_time
-                print >> file_obj, task_name, 0, \
-                    min_y.total_seconds() / 3600, \
-                    max_y.total_seconds() / 3600
 
-        file_obj.flush()
+def plot_scheduling(out, job, report):
+    workflow_started_at = None
+    queued, running, completed, failed = 0, 0, 0, 0
+    for timestamp, event, data in report.events:
+        if event == 'WORKFLOW_STARTED':
+            workflow_started_at = timestamp
+            queued = len(data['queued'])
+        elif event == 'TASK_STARTED':
+            queued -= 1
+            running += 1
+        elif event == 'TASK_COMPLETED':
+            running -= 1
+            completed += 1
+        elif event == 'TASK_FAILED':
+            running -= 1
+            failed += 1
+        else:
+            continue
 
-        template_path = os.path.join(os.path.dirname(GWF_PATH),
-                                     'templates',
-                                     'workflow_timeline.plot')
+        relative_time = timestamp - workflow_started_at
+        print >> out, relative_time.total_seconds() / 3600, \
+            queued, running, completed, failed
 
-        # now that we have written the data file, we must plot it with gnuplot.
-        template = 'gnuplot -e "infile=\'{0}\'; outfile=\'{1}\'" {2}'
-        subprocess.call(template.format(file_obj.name,
-                                        'plot.png',
-                                        template_path),
-                        cwd=os.getcwd(),
-                        shell=True,
-                        stdout=subprocess.PIPE,
-                        stderr=subprocess.PIPE)
+PLOTS = {
+    'timeline': (plot_timeline, 'workflow_timeline'),
+    'scheduling': (plot_scheduling, 'workflow_scheduling')
+}
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
@@ -395,7 +427,7 @@ if __name__ == '__main__':
                         help='show status for a specific job')
     parser.add_argument('-t', '--task',
                         help='show states for a specific task of a job')
-    parser.add_argument('-p', '--plot', action='store_true',
+    parser.add_argument('-p', '--plot', choices=PLOTS.keys(),
                         help='if a running job is given, plots the timeline ' +
                              'of the job using gnuplot')
 
@@ -409,7 +441,7 @@ if __name__ == '__main__':
         parser.error('argument -p/--plot: required by argument -p/--plot.')
 
     if args.plot:
-        plot_job(args.job)
+        plot(args.job, args.plot)
         sys.exit(0)
 
     if args.list:
