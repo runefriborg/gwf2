@@ -50,7 +50,9 @@ class ReportReader(object):
     The user feeds the :class:`ReportReader` with reports using :func:`write`
     and is then able to read the current state at any time.'''
 
-    def __init__(self):
+    def __init__(self, filename=None):
+        self.events = []
+
         # keeps track of the state of the workflow
         self.workflow = {
             'completed_at': None,
@@ -76,10 +78,20 @@ class ReportReader(object):
             TRANSFER_FAILED: self._transfer_failed
         }
 
-    def write(self, report):
-        timestamp, event, data = report
-        self.handlers[event](
-            datetime.datetime.fromtimestamp(timestamp), **data)
+        if filename:
+            with open(filename) as f:
+                for entry in f.readlines():
+                    self.write(json.loads(entry))
+
+    def write(self, entry):
+        if isinstance(entry, str):
+            entry = json.loads(entry)
+            entry[0] = datetime.datetime.fromtimestamp(entry[0])
+        timestamp, event, data = entry
+        timestamp = datetime.datetime.fromtimestamp(timestamp)
+
+        self.events.append((timestamp, event, data))
+        self.handlers[event](timestamp, **data)
 
     def _workflow_queued(self, timestamp):
         self.workflow['queued_at'] = timestamp
@@ -140,24 +152,6 @@ class ReportReader(object):
             'timestamp': timestamp,
             'explanation': explanation
         }
-
-
-class FileLikeReportReader(ReportReader):
-    '''A ReportReader which can be written to like a file.'''
-
-    def write(self, report):
-        super(FileLikeReportReader, self).write(json.loads(report))
-
-
-class FileReportReader(ReportReader):
-    '''Reads and interprets a report file to rebuild the state of the
-    currently running job.'''
-
-    def __init__(self, filename):
-        super(FileReportReader, self).__init__()
-        with open(filename) as f:
-            for report in f.readlines():
-                self.write(json.loads(report))
 
 
 class FileReporter(Reporter):
