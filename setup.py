@@ -18,7 +18,7 @@ setup(
 
     description = ("Grid WorkFlow - a make-like system for"
                    "submitting jobs through qsub."),
-    long_description=read('README'),
+    long_description=read('README.md'),
     keywords = "qsub make",
     license = "GNU GPLv3",
     url = "https://github.com/mailund/gwf",
@@ -29,6 +29,11 @@ setup(
              'scripts/gwf-clean',
              'scripts/gwf-workflow-graph',
              'scripts/gwf-print-lists'],
+
+    include_package_data=True,
+    package_data={
+        'gwf': ['templates/*.plot']
+    },
 
     test_suite='tests',
 
