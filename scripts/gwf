@@ -103,9 +103,9 @@ if not args.graph_key:
 
     for t in tasklist:
         if t in targets_to_schedule:
-            print("Running\t" + t.name)
+            print("Run\t" + t.name)
         else:
-            print("Skipped\t" + t.name)
+            print("Skip\t" + t.name)
 
 
 # Create PBS JOB
