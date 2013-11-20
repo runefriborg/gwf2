@@ -40,8 +40,7 @@ class Sandbox(object):
         try:
             process = subprocess.call(command,
                                       shell=True,
-                                      stdout=subprocess.PIPE,
-                                      stderr=subprocess.PIPE)
+                                      env=sandbox_environment)
         except subprocess.CalledProcessError, e:
             return (process.stdout, process.stderr, e.returncode)
 
