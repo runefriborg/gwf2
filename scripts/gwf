@@ -132,6 +132,7 @@ environment = get_environment()
 logging.debug(environment)
 
 shared_dir = os.path.join(environment.config_dir, 'jobs', environment.job_id)
+os.makedirs(shared_dir)
 
 # initialize file reporter such that it writes the log file to local
 # storage (scratch) until the reporter is finalized.
