@@ -31,6 +31,10 @@ class Sandbox(object):
 
         os.chdir(self.old_working_dir)
 
+    def touch(self, path):
+        with open(os.path.join(self.sandbox_path, path), 'w'):
+            pass
+
     def run(self, command):
         sandbox_environment = dict(os.environ)
         sandbox_environment['GWF_SCRATCH_DIR'] = self.sandbox_scratch_path
