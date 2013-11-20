@@ -98,9 +98,15 @@ if not args.graph_key:
     # Retrieve the list of tasks to schedule
     targets_to_schedule = graph.schedule(workflow.target_names)
 
+    
+    
+    #groups_of_tasks_to_run = graph.schedule(workflow.target_names)
+    #print groups_of_tasks_to_run
+
     # Retrieve the list of all tasks 
     tasklist = graph.tasklist(workflow.target_names)
 
+    # Always output status of tasks
     for t in tasklist:
         if t in targets_to_schedule:
             print("Run\t" + t.name)
@@ -108,43 +114,43 @@ if not args.graph_key:
             print("Skip\t" + t.name)
 
 
-# Create PBS JOB
-if not args.local:
-    template = '''#!/bin/sh
-#PBS -N {name}
-#PBS -q {queue_name}
-#PBS -l nodes={max_nodes}:ppn=16
-#PBS -l walltime={walltime}
-#PBS -d '''+os.getcwd()+'''
+    # Create PBS jobs
+    if not args.local:
+        template = '''#!/bin/sh
+    #PBS -N {name}
+    #PBS -q {queue_name}
+    #PBS -l nodes={max_nodes}:ppn=16
+    #PBS -l walltime={walltime}
+    #PBS -d '''+os.getcwd()+'''
 
-gwf --local '''+' '.join(sys.argv[1:])+'''
-'''
-    complete_script = template.format(**vars(args))
+    gwf --local '''+' '.join(sys.argv[1:])+'''
+    '''
+        complete_script = template.format(**vars(args))
 
-    if args.dryrun:
-        print(complete_script)
-    else:
-        process = subprocess.Popen("qsub",
-                                   shell=True,
-                                   stdin=subprocess.PIPE,
-                                   stdout=subprocess.PIPE,
-                                   stderr=subprocess.PIPE)
+        if args.dryrun:
+            print(complete_script)
+        else:
+            process = subprocess.Popen("qsub",
+                                       shell=True,
+                                       stdin=subprocess.PIPE,
+                                       stdout=subprocess.PIPE,
+                                       stderr=subprocess.PIPE)
 
-        stdout, stderr = process.communicate(complete_script)
-        if not stdout.strip().endswith('.in'):
-            print stdout
-            print stderr
-            sys.exit(1)
+            stdout, stderr = process.communicate(complete_script)
+            if not stdout.strip().endswith('.in'):
+                print stdout
+                print stderr
+                sys.exit(1)
 
-        job_id = stdout.strip()
+            job_id = stdout.strip()
 
-        shared_dir = os.path.join(GWF_CONFIG_DIR, 'jobs', job_id)
-        os.makedirs(shared_dir)
-        with open(os.path.join(shared_dir, 'environment'), 'w') as fp:
-            json.dump({'job_id': job_id}, fp)
-        print job_id
+            shared_dir = os.path.join(GWF_CONFIG_DIR, 'jobs', job_id)
+            os.makedirs(shared_dir)
+            with open(os.path.join(shared_dir, 'environment'), 'w') as fp:
+                json.dump({'job_id': job_id}, fp)
+            print job_id
 
-    sys.exit(0)
+        sys.exit(0)
 
 
 #####################################################################

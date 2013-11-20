@@ -71,8 +71,7 @@ class DependencyGraph(object):
         candidates = self.nodes.values()
         for _, node in self.nodes.items():
             for _, dependency in node.dependencies:
-                if dependency in candidates \
-                        or not dependency.task.can_execute:
+                if dependency in candidates:
                     candidates.remove(dependency)
         return candidates
 
@@ -152,8 +151,19 @@ class DependencyGraph(object):
 
         return tasks
 
-
     def schedule(self, target_names):
+        """
+        Arrange the tasks in the workflow into groups of tasks, based on which tasks
+        have the submit flag enabled.
+
+        For each task with a submit flag, devide the set into four groups.. 
+          * The tasks before the submit task
+          * The tasks after the submit task
+          * The task
+          * The in-between tasks (this is a greedy group)
+
+        """
+
         roots = [self.nodes[target_name] for target_name in target_names]
         end_targets = self.workflow.target_names
 
@@ -177,7 +187,9 @@ class DependencyGraph(object):
         processed = set()
         schedule = []
 
-        def dfs(node):
+        groups = [[]]
+
+        def dfs(node, g):
             if node in processed or not node.task.can_execute:
                 return
 
@@ -185,14 +197,30 @@ class DependencyGraph(object):
                 if files_exist(node.task.output) and is_oldest(node.task):
                     return
 
+
+            if node.task.submit:
+                # make two new groups
+                g.append([node.task])
+                g.append(g[0])
+                g[0] = [[]] 
+            else:
+                # old group
+                g[0].append(node.task)
+
+
             schedule.append(node.task)
             processed.add(node)
 
             for _, dep in node.dependencies:
-                dfs(dep)
+                dfs(dep, g)
 
         for root in roots:
-            dfs(root)
+            dfs(root, groups)
+
+        #for g in groups:
+        #    print "Group"
+        #    for t in g:
+        #        print "\t" + str(t)
 
         # Put tasks in optimal order
         schedule.reverse()

@@ -13,8 +13,6 @@ parser = argparse.ArgumentParser(description='Clean workflow files.')
 
 parser.add_argument('-f', '--file', required=True, dest='workflow_file',
                     help='workflow file. e.g workflow.gwf')
-parser.add_argument('-v', '--verbose', action='store_true', default=False,
-                    help='Print a list of the deleted files.')
 
 args = parser.parse_args()
 
@@ -25,28 +23,12 @@ workflow = parse(args.workflow_file)
 graph = DependencyGraph(workflow)
 workflow.target_names = frozenset(node.task.name for node in graph.end_targets)
 
-# For every target name specified by the user, compute its dependencies
-# and build a list of all tasks. self.schedule no
-# longer corresponds to the topological sorting of the tasks, but is
-# just a list of all tasks that must be run. The scheduler will figure
-# out the correct order to run them in.
-targets = [workflow.targets[target_name]
-           for target_name in workflow.target_names]
+# Retrieve the list of all tasks 
+tasklist = graph.tasklist(workflow.target_names)
 
-
-def dfs(task):
-    if not task.can_execute or task.is_dummy:
-        return
-
-    if task.checkpoint or task.name in workflow.target_names:
-        for path in task.output:
-            if os.path.exists(path):
-                if args.verbose:
-                    print path
-                os.remove(path)
-
-    for _, dep in task.dependencies:
-        dfs(dep)
-
-for target in targets:
-    dfs(target)
+# Remove all output files
+for task in tasklist:
+    for path in task.output:
+        if os.path.exists(path):
+            os.remove(path)
+            print("Removed " + path)

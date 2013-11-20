@@ -30,6 +30,7 @@ def parse_target(target_code, working_dir):
     cores = 1
     memory = 1
     flags = []
+    xsub = None
 
     for i in xrange(1, len(lines)):
         line = lines[i]
@@ -45,6 +46,9 @@ def parse_target(target_code, working_dir):
 
             elif line.startswith(':checkpoint'):
                 flags.append('checkpoint')
+
+            elif line.startswith(':xsub'):
+                xsub = line.split()[1:]
 
             elif line.startswith(':cores'):
                 cores = int(line.split()[1])
@@ -71,6 +75,7 @@ def parse_target(target_code, working_dir):
                   cores,
                   memory,
                   flags,
+                  xsub,
                   code,
                   working_dir)
 
