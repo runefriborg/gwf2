@@ -1,0 +1,52 @@
+This is an example workflow.
+
+@target TargetA
+:input ponAbe2.fa.gz
+:output head.ponAbe2.fa.gz
+
+head ponAbe2.fa.gz > head.ponAbe2.fa.gz
+
+@target TargetB
+:input head.ponAbe2.fa.gz
+:output greatApe.ponAbe2.fa.gz
+
+echo "GREATAPE" | cat - head.ponAbe2.fa.gz > greatApe.ponAbe2.fa.gz
+
+@target TargetC
+:input head.ponAbe2.fa.gz
+:output greatMonkey.ponAbe2.fa.gz
+
+echo "GREATMONKEY" | cat - head.ponAbe2.fa.gz > greatMonkey.ponAbe2.fa.gz
+
+@target TargetD
+:input greatApe.ponAbe2.fa.gz
+:output greatApeDouble.ponAbe2.fa.gz
+:checkpoint
+
+echo "GREATAPEGREATAPE" | cat - greatApe.ponAbe2.fa.gz > greatApeDouble.ponAbe2.fa.gz
+
+@target TargetE
+:input greatMonkey.ponAbe2.fa.gz
+:output greatMonkeyDouble.ponAbe2.fa.gz
+
+echo "GREATMONKEYGREATMONKEY" | cat - greatMonkey.ponAbe2.fa.gz > greatMonkeyDouble.ponAbe2.fa.gz
+
+@target TargetF
+:input greatApeDouble.ponAbe2.fa.gz
+:output funkyGreatApe.ponAbe2.fa.gz
+
+echo "THISFUNKYAPE" | cat - greatApeDouble.ponAbe2.fa.gz > funkyGreatApe.ponAbe2.fa.gz
+
+@target TargetG
+:input greatApeDouble.ponAbe2.fa.gz greatMonkeyDouble.ponAbe2.fa.gz
+:output veryFunkyFusionMonkeyApe.ponAbe2.fa.gz
+
+echo "MONKEYAPEFUSION" | \
+    cat - greatApeDouble.ponAbe2.fa.gz | \
+    cat - greatMonkeyDouble.ponAbe2.fa.gz > veryFunkyFusionMonkeyApe.ponAbe2.fa.gz
+
+@target TargetH
+:input veryFunkyFusionMonkeyApe.ponAbe2.fa.gz
+:output funkyTownApe.txt
+
+echo "FUNKYTOWNAPE" | cat - veryFunkyFusionMonkeyApe.ponAbe2.fa.gz > funkyTownApe.txt
