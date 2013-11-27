@@ -4,7 +4,7 @@ import unittest
 from integration import IntegrationTestCase, Sandbox
 
 
-class OneToManyToOneTest(IntegrationTestCase):
+class OneTargetOfMultipleTest(IntegrationTestCase):
 
     requirements = ['test_one_target_of_multiple.gwf']
 
