@@ -33,7 +33,7 @@ class Environment(object):
             json.dump(obj, f)
 
 
-class RealEnvironment(Environment):
+class PBSEnvironment(Environment):
 
     def __init__(self):
         self.nodes = {}
@@ -50,6 +50,7 @@ class RealEnvironment(Environment):
 
     @property
     def scratch_dir(self):
+        # TODO, Move this to a global configuration setting
         return os.path.join(os.getenv('GWF_SCRATCH', '/scratch/'), self.job_id)
 
 
@@ -62,7 +63,19 @@ class FakeEnvironment(Environment):
         the $PBS_JOBID variable directly in their target code, so we actually
         have to set it to maintain backwards compatability.'''
 
-        self.job_id = str(time.clock())[2:12] + '.in'
+        # Lookup next jobid
+        previous_job_id = 0
+        if os.path.exists(os.path.join(os.path.expanduser('~'),".gwf/jobs")):
+            previous_jobs = os.listdir(os.path.join(os.path.expanduser('~'),".gwf/jobs"))
+            previous_jobs.sort()
+            try:
+                previous_job_id = int(previous_jobs[-1])
+            except ValueError:
+                previous_job_id = 0
+
+        job_id_int = previous_job_id + 1
+        self.job_id = "00000"[len(str(job_id_int)):]+str(job_id_int)
+
         os.environ['PBS_JOBID'] = self.job_id
 
         import multiprocessing
@@ -87,5 +100,8 @@ def get_environment():
     # by default, we use a fake environment unless we figure out that there is
     # a real environment set by the queueing system.
     if os.getenv('PBS_JOBID', False) and os.getenv('PBS_NODEFILE', False):
-        return RealEnvironment()
+        return PBSEnvironment()
+
+    # Here we can add other environments for other batch systems, such as LoadLeveler.
+
     return FakeEnvironment()

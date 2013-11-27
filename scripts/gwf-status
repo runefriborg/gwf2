@@ -433,12 +433,16 @@ if __name__ == '__main__':
 
     args = parser.parse_args()
 
+    # Add zeros to job id
+    if args.job:
+        args.job = "00000"[len(args.job):]+args.job
+
     if args.list and (args.task or args.job):
         parser.error('argument -l/--list: cannot be used with other arguments.')
     if args.task and not args.job:
         parser.error('argument -j/--job: required by argument -t/--task.')
     if args.plot and not args.job:
-        parser.error('argument -p/--plot: required by argument -p/--plot.')
+        parser.error('argument -j/--job: required by argument -p/--plot.')
 
     if args.plot:
         plot(args.job, args.plot)

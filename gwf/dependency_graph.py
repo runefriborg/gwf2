@@ -71,8 +71,7 @@ class DependencyGraph(object):
         candidates = self.nodes.values()
         for _, node in self.nodes.items():
             for _, dependency in node.dependencies:
-                if dependency in candidates \
-                        or not dependency.task.can_execute:
+                if dependency in candidates:
                     candidates.remove(dependency)
         return candidates
 
@@ -129,8 +128,43 @@ class DependencyGraph(object):
         for root in roots:
             dfs(root, root)
 
-    def schedule(self, target_name):
-        root = self.nodes[target_name]
+    def tasklist(self, target_names):
+        roots = [self.nodes[target_name] for target_name in target_names]
+        processed = set()
+        tasks = []
+
+        def dfs(node):
+            if node in processed or not node.task.can_execute:
+                return
+
+            processed.add(node)
+            tasks.append(node.task)
+
+            for _, dep in node.dependencies:
+                dfs(dep)
+
+        for root in roots:
+            dfs(root)
+
+        # Put tasks in optimal order
+        tasks.reverse()
+
+        return tasks
+
+    def schedule(self, target_names):
+        """
+        Arrange the tasks in the workflow into groups of tasks, based on which tasks
+        have the submit flag enabled.
+
+        For each task with a submit flag, devide the set into four groups.. 
+          * The tasks before the submit task
+          * The tasks after the submit task
+          * The task
+          * The in-between tasks (this is a greedy group)
+
+        """
+
+        roots = [self.nodes[target_name] for target_name in target_names]
         end_targets = self.workflow.target_names
 
         def files_exist(files):
@@ -139,21 +173,23 @@ class DependencyGraph(object):
         def is_oldest(task):
             age_of_oldest_output_file = age_of_oldest_file(task.output)
 
-            def dfs(root):
-                if root.checkpoint or root.name in end_targets:
-                    if not files_exist(root.output):
+            def dfs(node_task):
+                if node_task.checkpoint or node_task.name in end_targets:
+                    if not files_exist(node_task.output):
                         return False
-                    if age_of_newest_file(root.output) > age_of_oldest_output_file:
+                    if age_of_newest_file(node_task.output) > age_of_oldest_output_file:
                         return False
                 return all(dfs(dependency)
-                           for _, dependency in root.dependencies)
+                           for _, dependency in node_task.dependencies)
 
             return dfs(task)
 
         processed = set()
         schedule = []
 
-        def dfs(node):
+        groups = [[]]
+
+        def dfs(node, g):
             if node in processed or not node.task.can_execute:
                 return
 
@@ -161,11 +197,32 @@ class DependencyGraph(object):
                 if files_exist(node.task.output) and is_oldest(node.task):
                     return
 
+
+            if node.task.submit:
+                # make two new groups
+                g.append([node.task])
+                g.append(g[0])
+                g[0] = [[]] 
+            else:
+                # old group
+                g[0].append(node.task)
+
+
             schedule.append(node.task)
             processed.add(node)
 
             for _, dep in node.dependencies:
-                dfs(dep)
+                dfs(dep, g)
 
-        dfs(root)
+        for root in roots:
+            dfs(root, groups)
+
+        #for g in groups:
+        #    print "Group"
+        #    for t in g:
+        #        print "\t" + str(t)
+
+        # Put tasks in optimal order
+        schedule.reverse()
+
         return schedule

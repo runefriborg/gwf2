@@ -357,6 +357,7 @@ class Target(ExecutableTask):
                  cores,
                  memory,
                  flags,
+                 xsub,
                  code,
                  wd):
         # passing None as dependencies, 'cause Workflow will fill it in
@@ -366,8 +367,19 @@ class Target(ExecutableTask):
         self.cores = cores
         self.memory = memory
         self.flags = flags
+        self.submit_args = xsub
+        self.submit = False
         self.code = code
         self.host = None
+
+        # If set to submit, the target will be sent to the configured batch system as an
+        # isolated job
+        if self.submit_args != None:
+            self.submit = True
+
+        # Set default local_wd. If the task is executed, then the scheduler will overwrite
+        # this value
+        self.local_wd = self.working_dir
 
         if 'dummy' in self.flags and len(self.output) > 0:
             print 'Target %s is marked as a dummy target but has output files.'
@@ -377,9 +389,10 @@ class Target(ExecutableTask):
 
     def get_input(self):
         for in_file, dependency in self.dependencies:
-            # build path to file on remote source and destionation
+            # build path to file on remote source and destination
             relpath = os.path.relpath(in_file, self.working_dir)
             src_path = os.path.join(dependency.local_wd, relpath)
+
             dst_path = os.path.join(self.local_wd, relpath)
 
             # figure out source and destination hosts
