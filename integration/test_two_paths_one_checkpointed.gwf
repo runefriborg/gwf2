@@ -1,21 +1,22 @@
 @target Source
-:output some_file_a some_file_b
+:input some_file_a some_file_b
+:output some_file_a_prime some_file_b_prime
 
-touch some_file_a
-touch some_file_b
+cat some_file_a > some_file_a_prime
+cat some_file_b > some_file_b_prime
 
 @target CheckpointedPath
-:input some_file_a
+:input some_file_a_prime
 :output some_file_aa
 :checkpointed
 
-cat some_file_a > some_file_aa
+cat some_file_a_prime > some_file_aa
 
 @target NonCheckpointedPath
-:input some_file_b
+:input some_file_b_prime
 :output some_file_bb
 
-cat some_file_b > some_file_bb
+cat some_file_b_prime > some_file_bb
 
 @target Sink
 :input some_file_aa some_file_bb
