@@ -2,7 +2,7 @@ import os
 import os.path
 import unittest
 
-from integration import IntegrationTestCase, Sandbox
+from .integration import IntegrationTestCase, Sandbox
 
 
 class PlotGenerationTest(IntegrationTestCase):
