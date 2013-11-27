@@ -131,7 +131,14 @@ else:
 environment = get_environment()
 logging.debug(environment)
 
+if not os.path.isdir(environment.scratch_dir):
+    os.makedirs(environment.scratch_dir)
+if not os.path.isdir(environment.config_dir):
+    os.makedirs(environment.config_dir)
+
 shared_dir = os.path.join(environment.config_dir, 'jobs', environment.job_id)
+if not os.path.isdir(shared_dir):
+    os.makedirs(shared_dir)
 
 # initialize file reporter such that it writes the log file to local
 # storage (scratch) until the reporter is finalized.

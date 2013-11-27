@@ -77,9 +77,6 @@ class FakeEnvironment(Environment):
                                         os.path.join(os.path.expanduser('~'),
                                                      ".gwf-scratch")),
                                         self.job_id)
-        if not os.path.isdir(user_scratch_dir):
-            os.makedirs(user_scratch_dir)
-
         return user_scratch_dir
 
 
