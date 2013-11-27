@@ -2,6 +2,8 @@ import sys
 import os.path
 import logging
 
+from itertools import chain
+
 import reporting
 
 from copy import copy
@@ -34,8 +36,8 @@ class TaskScheduler(object):
         targets = [workflow.targets[target_name]
                    for target_name in workflow.target_names]
 
-        self.schedule = frozenset(*(self.graph.schedule(target.name)
-                                    for target in targets))
+        self.schedule = set(chain(*(self.graph.schedule(target.name)
+                                    for target in targets)))
 
         # Build a list of all the jobs that have not been completed yet.
         # Jobs should be removed from this list when they have completed.
