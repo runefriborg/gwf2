@@ -52,6 +52,22 @@ class Node(object):
         self.dependencies = dependencies
 
 
+class SubmitGroup(object):
+
+    '''A group of nodes to be scheduled together'''
+
+    def __init__(self, id, pos, nodes):
+        self.id = id
+        self.pos = pos
+        self.nodes = nodes
+
+        # Dependencies are added at a finalize stage
+        self.dependencies = set()
+
+    def __repr__(self):
+        return "<SubmitGroup id:'%s' pos:'%s' size:'%d' deps:%s>" % (self.id, self.pos, len(self.nodes), str(self.dependencies))
+
+
 class DependencyGraph(object):
 
     '''A complete dependency graph, with code for scheduling a workflow.'''
@@ -151,6 +167,122 @@ class DependencyGraph(object):
 
         return tasks
 
+    def split_workflow(self, target_names):
+        '''
+            Splits the workflow into groups and returns SubmitGroups.
+        '''
+
+        roots = [self.nodes[target_name] for target_name in target_names]
+
+        # Temporary group structure for depth-first traversal (dfs)
+        class Group(object):
+            nodes = []
+
+            def extract_free_from(self, submit_node):
+                ok = []
+                def test_dep(node):
+                    # Test dependency
+                    for _, dep in node.dependencies:
+                        if submit_node == dep:
+                            return True
+
+                    # Next dependency level (recursive)
+                    for _, dep in node.dependencies:
+                        if test_dep(dep):
+                            return True
+
+                    # Node does not depend on submit_node
+                    return False
+
+                for n in self.nodes:
+                    if not test_dep(n):
+                        ok.append(n)
+
+                for n in ok:
+                    self.nodes.remove(n)
+
+                return ok
+
+            def add(self, node):
+                self.nodes.append(node)
+
+            def extract(self):
+                g = self.nodes
+                self.nodes = []
+                return g
+
+
+        # Temporary group cluster structure for depth-first traversal (dfs)
+        class GroupCluster(object):
+            groups = []
+            mapNodeToGroup = {}
+
+            def add(self, id, pos, nodes):
+                s = SubmitGroup(id, pos, nodes)
+                self.groups.append(s)
+                for n in s.nodes:
+                    self.mapNodeToGroup[n] = s
+
+            def finalize(self):
+                """
+                    All dependencies between SubmitGroups are finalized and the result is returned.
+                """
+
+                # Use mapNodetoGroup to update dependencies
+                for node in self.mapNodeToGroup:
+                    for _, dep in node.dependencies:
+                        if dep.task.can_execute:
+                            if self.mapNodeToGroup[node] != self.mapNodeToGroup[dep]:
+                                self.mapNodeToGroup[node].dependencies.add(self.mapNodeToGroup[dep])
+
+                return self.groups
+
+
+        section = GroupCluster()
+        current = Group()
+        processed = set()
+
+        # Run depth-first traversal
+        def dfs(node):
+            if not node.task.can_execute:
+                return
+
+            if node in processed:
+                return
+
+            processed.add(node)
+
+            if node.task.submit:
+                # Find tasks in current.group, which does not depend on node
+                section.add(node.task.name, "inbetween", current.extract_free_from(node))
+
+                # Tasks to run after node
+                section.add(node.task.name, "after", current.extract())
+
+                # node
+                section.add(node.task.name, "task", [node])
+
+                for _, dep in node.dependencies:
+                    dfs(dep)
+
+                # Tasks to run before node
+                section.add(node.task.name, "before", current.extract())
+
+            else:
+                current.add(node)
+
+                for _, dep in node.dependencies:
+                    dfs(dep)
+            
+
+        for root in roots:
+            dfs(root)
+
+        section.add('', 'inbetween', current.extract())
+
+        return section.finalize()
+
+
     def schedule(self, target_names):
         """
         Arrange the tasks in the workflow into groups of tasks, based on which tasks
@@ -161,7 +293,6 @@ class DependencyGraph(object):
           * The tasks after the submit task
           * The task
           * The in-between tasks (this is a greedy group)
-
         """
 
         roots = [self.nodes[target_name] for target_name in target_names]
@@ -189,6 +320,16 @@ class DependencyGraph(object):
 
         groups = [[]]
 
+        def split(node):
+            if node in processed or not node.task.can_execute:
+                return
+
+            if node.task.checkpoint or node.task.name in end_targets:
+                if files_exist(node.task.output) and is_oldest(node.task):
+                    return
+
+
+
         def dfs(node, g):
             if node in processed or not node.task.can_execute:
                 return
@@ -199,6 +340,7 @@ class DependencyGraph(object):
 
 
             if node.task.submit:
+
                 # make two new groups
                 g.append([node.task])
                 g.append(g[0])
