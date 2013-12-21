@@ -79,8 +79,6 @@ class DependencyGraph(object):
             if name not in self.nodes:
                 self.nodes[name] = self.build_DAG(target)
 
-        self.count_references()
-
     @property
     def end_targets(self):
         '''Find targets which are not depended on by any other target.'''
@@ -132,17 +130,22 @@ class DependencyGraph(object):
     def get_node(self, name):
         return self.nodes[name]
 
-    def count_references(self):
+    def update_reference_counts(self):
         roots = [self.nodes[target_name]
                  for target_name in self.workflow.target_names]
 
-        def dfs(node, root):
-            if node != root:
-                node.task.references += 1
+        # reset (set to 1, as the on_task_done function also gets a reference)
+        for node in self.nodes.values():
+            node.task.references= 1
+
+        # count
+        def dfs(node):
             for _, dep in node.dependencies:
-                dfs(dep, root)
+                dep.task.references += 1
+                dfs(dep)
         for root in roots:
-            dfs(root, root)
+            dfs(root)
+
 
     def tasklist(self, target_names):
         roots = [self.nodes[target_name] for target_name in target_names]
@@ -284,17 +287,6 @@ class DependencyGraph(object):
 
 
     def schedule(self, target_names):
-        """
-        Arrange the tasks in the workflow into groups of tasks, based on which tasks
-        have the submit flag enabled.
-
-        For each task with a submit flag, devide the set into four groups.. 
-          * The tasks before the submit task
-          * The tasks after the submit task
-          * The task
-          * The in-between tasks (this is a greedy group)
-        """
-
         roots = [self.nodes[target_name] for target_name in target_names]
         end_targets = self.workflow.target_names
 
@@ -318,51 +310,22 @@ class DependencyGraph(object):
         processed = set()
         schedule = []
 
-        groups = [[]]
-
-        def split(node):
+        def dfs(node):
             if node in processed or not node.task.can_execute:
                 return
 
             if node.task.checkpoint or node.task.name in end_targets:
                 if files_exist(node.task.output) and is_oldest(node.task):
                     return
-
-
-
-        def dfs(node, g):
-            if node in processed or not node.task.can_execute:
-                return
-
-            if node.task.checkpoint or node.task.name in end_targets:
-                if files_exist(node.task.output) and is_oldest(node.task):
-                    return
-
-
-            if node.task.submit:
-
-                # make two new groups
-                g.append([node.task])
-                g.append(g[0])
-                g[0] = [[]] 
-            else:
-                # old group
-                g[0].append(node.task)
-
 
             schedule.append(node.task)
             processed.add(node)
 
             for _, dep in node.dependencies:
-                dfs(dep, g)
+                dfs(dep)
 
         for root in roots:
-            dfs(root, groups)
-
-        #for g in groups:
-        #    print "Group"
-        #    for t in g:
-        #        print "\t" + str(t)
+            dfs(root)
 
         # Put tasks in optimal order
         schedule.reverse()

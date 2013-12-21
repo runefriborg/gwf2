@@ -12,26 +12,17 @@ from process import RemoteProcess, remote
 
 class TaskScheduler(object):
 
-    def __init__(self, environment, reporter, workflow, scheduler):
+    def __init__(self, environment, reporter, workflow, schedule, scheduler):
         self.environment = environment
         self.reporter = reporter
         self.workflow = workflow
+        self.schedule = schedule
         self.scheduler = scheduler
 
         self.shared_dir = os.path.join(self.environment.config_dir, 'jobs',
                                        self.environment.job_id)
 
         self.local_dir = self.environment.scratch_dir
-
-        # build the dependency graph
-        self.graph = DependencyGraph(self.workflow)
-
-        # For every target name specified by the user, compute its dependencies
-        # and build a list of all tasks which must be run. self.schedule no
-        # returns topological sorting of the tasks, to help the scheduler with
-        # less searching for tasks to run. The scheduler will figure
-        # out the correct order to run tasks in.
-        self.schedule = self.graph.schedule(workflow.target_names)
 
         # Build a list of all the jobs that have not been completed yet.
         # Jobs should be removed from this list when they have completed.
@@ -175,7 +166,7 @@ class TaskScheduler(object):
             self.scheduler.stop()
 
         # if this task is the final task, we should copy its output files to
-        # the the workflow directory.
+        # the workflow directory.
         if task.name in self.workflow.target_names or task.checkpoint:
             task.move_output(self.workflow.working_dir)
 
@@ -187,6 +178,11 @@ class TaskScheduler(object):
             dependency.references -= 1
             if dependency.references == 0:
                 self.cleanup(dependency)
+
+        # decrease references for own, task to avoid others preemptly doing a cleanup.
+        task.references -= 1
+        if task.references == 0:
+            self.cleanup(task)
 
         # figure out where this task was run and increment the number of cores
         # available on the host, since the job is now done.

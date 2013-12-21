@@ -75,11 +75,12 @@ if not args.graph_key and args.local:
     # parse workflow file
     workflow = parse(os.path.join(os.getcwd(), args.workflow_file))
 
+    # build the dependency graph
+    graph = DependencyGraph(workflow)
 
     # If all end targets should be run, we have to figure out what those
     # are and set the target names in the workflow.
     if args.all:
-        graph = DependencyGraph(workflow)
         workflow.target_names = frozenset(node.task.name
                                           for node in graph.end_targets)
     else:
@@ -91,6 +92,22 @@ if not args.graph_key and args.local:
                 print >> sys.stderr, 'target %s not found in workflow.' % target
                 sys.exit(1)
 
+    # Retrieve the list of all tasks 
+    tasklist = graph.tasklist(workflow.target_names)
+
+    # For every target name specified by the user, compute its dependencies
+    # and build a list of all tasks which must be run. self.schedule no
+    # returns topological sorting of the tasks, to help the scheduler with
+    # less searching for tasks to run. The scheduler will figure
+    # out the correct order to run tasks in.
+    schedule_tasks = graph.schedule(workflow.target_names)
+
+    # Always output status of tasks
+    for t in tasklist:
+        if t in schedule_tasks:
+            print("Run\t" + t.name)
+        else:
+            print("Skip\t" + t.name)
 
     # get a suitable environment for this workflow instance.
     environment = get_environment()
@@ -104,13 +121,16 @@ if not args.graph_key and args.local:
     reporter = FileReporter(tmp_dir=environment.scratch_dir, final_dir=shared_dir)
     reporter.report(gwf.reporting.WORKFLOW_QUEUED)
 
+    # Count references
+    graph.update_reference_counts()
+
     # initialize a scheduler for the workflow and start the run loop.
     scheduler = TaskScheduler(environment,
                               reporter,
                               workflow,
+                              schedule_tasks,
                               ProcessScheduler())
     scheduler.run()
-
 
 
 elif not args.graph_key and not args.local:
@@ -171,7 +191,10 @@ elif not args.graph_key and not args.local:
 #PBS -d '''+os.getcwd()+'''
 #Dependencies: '''+str(depIds)+'''
 
-gwf -f {workflow_file} -k '''+g.id+'___'+g.pos+"\n"
+gwf -f {workflow_file} -k '''+g.id+'___'+g.pos+' '
+
+        if args.targets:
+            template += '-t '+' '.join(args.targets)
 
         complete_script = template.format(**vars(args))
 
@@ -233,7 +256,57 @@ else:
     ################## Run execution for graph cluster ##################
     #####################################################################
 
-    # Setup execution of network defined by graph_key
-    pass
+    # parse workflow file
+    workflow = parse(os.path.join(os.getcwd(), args.workflow_file))
+
+    # build the dependency graph
+    graph = DependencyGraph(workflow)
+
+    # If all end targets should be run, we have to figure out what those
+    # are and set the target names in the workflow.
+    if args.all:
+        workflow.target_names = frozenset(node.task.name
+                                          for node in graph.end_targets)
+    else:
+        workflow.target_names = args.targets
+        # check if all targets that we wish to run have been defined in the
+        # workflow.
+        for target in workflow.target_names:
+            if target not in workflow.targets:
+                print >> sys.stderr, 'target %s not found in workflow.' % target
+                sys.exit(1)
+
+
+    # For every target name specified by the user, compute its dependencies
+    # and build a list of all tasks which must be run. self.schedule no
+    # returns topological sorting of the tasks, to help the scheduler with
+    # less searching for tasks to run. The scheduler will figure
+    # out the correct order to run tasks in.
+    schedule_tasks = self.graph.schedule(workflow.target_names)
+
+
+
+
+    # get a suitable environment for this workflow instance.
+    environment = get_environment()
+    logging.debug(environment)
+
+    shared_dir = os.path.join(environment.config_dir, 'jobs', environment.job_id)
+    os.makedirs(shared_dir)
+
+    # initialize file reporter such that it writes the log file to local
+    # storage (scratch) until the reporter is finalized.
+    reporter = FileReporter(tmp_dir=environment.scratch_dir, final_dir=shared_dir)
+    reporter.report(gwf.reporting.WORKFLOW_QUEUED)
+
+    # initialize a scheduler for the workflow and start the run loop.
+    scheduler = TaskScheduler(environment,
+                              reporter,
+                              workflow,
+                              schedule_tasks,
+                              ProcessScheduler())
+    scheduler.run()
+
+
 
 
