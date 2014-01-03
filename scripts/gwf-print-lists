@@ -13,9 +13,7 @@ import argparse
 
 parser = argparse.ArgumentParser(description='Print processed lists.')
 
-parser.add_argument('-f', '--file', 
-                    default='workflow.gwf', dest='workflow_file',
-                    help='Workflow file if not the default (workflow.gwf).')
+parser.add_argument('workflow_file', help='The .gwf file containing the workflow')
 
 args = parser.parse_args()
 

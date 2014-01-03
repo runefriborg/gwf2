@@ -28,13 +28,12 @@ if os.getenv('GWF_DEBUG', False):
 else:
     logging.basicConfig(level=logging.CRITICAL)
 
-parser = argparse.ArgumentParser(description='Run a gwf workflow, locally or through submitting the tasks to an OpenPBS scheduler. Examples "gwf -f workflow.gwf -a" or "gwf -l -f workflow.gwf -t TargetB')
+parser = argparse.ArgumentParser(description='Run a gwf workflow, locally or through submitting the tasks to an OpenPBS scheduler. Examples "gwf -a workflow.gwf" or "gwf -l -t TargetB workflow.gwf')
 
 #optgroup = parser.add_argument_group('optional arguments')
 parser.add_argument('-l', '--local', default=False, action='store_true',
                     help='Run a workflow locally')
-parser.add_argument('-f', '--file', dest='workflow_file', required=True,
-                    help='')
+parser.add_argument('workflow_file', help='The .gwf file containing the workflow')
 
 exclgroup = parser.add_mutually_exclusive_group()
 exclgroup.add_argument('-t', '--targets', nargs='+',
