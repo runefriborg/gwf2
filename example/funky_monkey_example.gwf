@@ -3,6 +3,7 @@ This is an example workflow.
 @target TargetA
 :input ponAbe2.fa.gz
 :output head.ponAbe2.fa.gz
+:xsub
 
 head ponAbe2.fa.gz > head.ponAbe2.fa.gz
 

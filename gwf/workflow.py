@@ -377,8 +377,7 @@ class Target(ExecutableTask):
         if self.submit_args != None:
             self.submit = True
 
-        # Set default local_wd. If the task is executed, then the scheduler will overwrite
-        # this value
+        # Is changed, when the task is executed.
         self.local_wd = self.working_dir
 
         if 'dummy' in self.flags and len(self.output) > 0:
