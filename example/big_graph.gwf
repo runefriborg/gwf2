@@ -1,0 +1,73 @@
+
+@target t0
+:xsub
+:input big_graph_in.txt
+:output a
+
+cat big_graph_in.txt > a
+
+@target t1
+:input a
+:output b
+
+cat a > b
+
+@target t2
+:input b
+:output c
+:checkpoint
+
+cat b > c
+
+@target t3
+:input c
+:output d
+
+cat c > d
+
+@target t4
+:input d
+:output e
+
+cat d > e
+
+@target x0
+:input a
+:input big_graph_in.txt
+:output aa
+
+cat a big_graph_in.txt > aa
+
+@target x1
+:xsub
+:input aa
+:output bb
+
+cat aa > bb
+
+@target x2
+:input bb
+:output cc
+
+cat bb > cc
+
+@target x3
+:checkpoint
+:input cc
+:output dd
+
+cat cc > dd
+
+@target x4
+:input dd
+:output ee
+
+cat dd > ee
+
+@target x5
+:input e
+:input ee
+:output big_graph_result.txt
+
+cat e > big_graph_result.txt
+cat ee >> big_graph_result.txt
