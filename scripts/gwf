@@ -195,10 +195,12 @@ elif not args.graph_key and not args.local:
 #PBS -d '''+os.getcwd()+'''
 #Dependencies: '''+str(depIds)+'''
 
-gwf -f {workflow_file} -k '''+g.id+'___'+g.pos+' '
+gwf -k '''+g.id+'___'+g.pos+' '
 
         if args.targets:
             template += '-t '+' '.join(args.targets)
+
+        template += ' {workflow_file}'
 
         complete_script = template.format(**vars(args))
 
