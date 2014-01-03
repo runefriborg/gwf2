@@ -507,6 +507,10 @@ class Target(ExecutableTask):
     def checkpoint(self):
         return 'checkpoint' in self.flags
 
+    def set_checkpoint(self):
+        if not 'checkpoint' in self.flags:
+            self.flags.append('checkpoint')
+
     def __str__(self):
         return '@target %s, input(%s) -> output(%s)' % (
             self.name,

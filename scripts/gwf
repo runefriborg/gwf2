@@ -114,7 +114,8 @@ if not args.graph_key and args.local:
     logging.debug(environment)
 
     shared_dir = os.path.join(environment.config_dir, 'jobs', environment.job_id)
-    os.makedirs(shared_dir)
+    if not os.path.exists(shared_dir):
+        os.makedirs(shared_dir)
 
     # initialize file reporter such that it writes the log file to local
     # storage (scratch) until the reporter is finalized.
@@ -180,6 +181,7 @@ elif not args.graph_key and not args.local:
     # Eventhough two groups can be run simultaneously, they still need to be run as individual jobs.
 
     xsubIdMap={}
+    xsubSkipped=[]
 
     def submit(g, depIds):
         # Create PBS job
@@ -217,7 +219,9 @@ gwf -f {workflow_file} -k '''+g.id+'___'+g.pos+' '
             job_id = stdout.strip()
 
             shared_dir = os.path.join(GWF_CONFIG_DIR, 'jobs', job_id)
-            os.makedirs(shared_dir)
+            if not os.path.exists(shared_dir):
+                os.makedirs(shared_dir)
+
             with open(os.path.join(shared_dir, 'environment'), 'w') as fp:
                 json.dump({'job_id': job_id}, fp)
             print job_id
@@ -234,15 +238,21 @@ gwf -f {workflow_file} -k '''+g.id+'___'+g.pos+' '
                     skip = False
                     break
 
-            if not skip:
+            if skip:
+                # Add group to dependency map
+                xsubSkipped.append(g)
+            else:
                 # Submit the groups in the right order
+                skipped = 0
                 depIds = []
                 for dep in g.dependencies:
                     if dep in xsubIdMap:
                         depIds.append(xsubIdMap[dep])
+                    elif dep in xsubSkipped:
+                        skipped += 1
 
                 # Are all dependencies submitted?
-                if len(g.dependencies) == len(depIds):
+                if len(g.dependencies) == (len(depIds) + skipped):
                     submit(g, depIds)
                 else:
                     groups.append(g)
@@ -250,7 +260,6 @@ gwf -f {workflow_file} -k '''+g.id+'___'+g.pos+' '
 
 else:
     # args.graph_key is there
-    print("GRAPHKEY: " + args.graph_key)
 
     #####################################################################
     ################## Run execution for graph cluster ##################
@@ -276,28 +285,51 @@ else:
                 print >> sys.stderr, 'target %s not found in workflow.' % target
                 sys.exit(1)
 
+    # build the dependency graph
+    graph = DependencyGraph(workflow)
 
-    # For every target name specified by the user, compute its dependencies
-    # and build a list of all tasks which must be run. self.schedule no
-    # returns topological sorting of the tasks, to help the scheduler with
-    # less searching for tasks to run. The scheduler will figure
-    # out the correct order to run tasks in.
-    schedule_tasks = self.graph.schedule(workflow.target_names)
+    # Retrieve the list of tasks to run
+    all_targets_to_schedule = graph.schedule(workflow.target_names)
 
+    # Split workflow
+    groups = graph.split_workflow(workflow.target_names)
+    
+    # Get group
+    group = None
+    g_id, g_pos = args.graph_key.split("___")
+    for g in groups:
+        if g.id == g_id and g.pos == g_pos:
+            group = g
+            break
+    
+    if not group:
+        print >> sys.stderr, 'graph key %s not found.' % args.graph_key
+        sys.exit(1)
 
+    schedule_tasks = []
 
+    # Check if any task in the group is scheduled to run
+    for node in group.nodes:
+        if node.task in all_targets_to_schedule:
+            schedule_tasks.append(node.task)
+
+    
 
     # get a suitable environment for this workflow instance.
     environment = get_environment()
     logging.debug(environment)
 
     shared_dir = os.path.join(environment.config_dir, 'jobs', environment.job_id)
-    os.makedirs(shared_dir)
+    if not os.path.exists(shared_dir):
+        os.makedirs(shared_dir)
 
     # initialize file reporter such that it writes the log file to local
     # storage (scratch) until the reporter is finalized.
     reporter = FileReporter(tmp_dir=environment.scratch_dir, final_dir=shared_dir)
     reporter.report(gwf.reporting.WORKFLOW_QUEUED)
+
+    # Count references
+    graph.update_reference_counts()
 
     # initialize a scheduler for the workflow and start the run loop.
     scheduler = TaskScheduler(environment,
@@ -306,7 +338,6 @@ else:
                               schedule_tasks,
                               ProcessScheduler())
     scheduler.run()
-
 
 
 

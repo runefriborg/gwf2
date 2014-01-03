@@ -237,6 +237,9 @@ class DependencyGraph(object):
                         if dep.task.can_execute:
                             if self.mapNodeToGroup[node] != self.mapNodeToGroup[dep]:
                                 self.mapNodeToGroup[node].dependencies.add(self.mapNodeToGroup[dep])
+                                
+                                # set dependency node to checkpoint to force output to shared disk
+                                dep.task.set_checkpoint()
 
                 return self.groups
 
