@@ -7,7 +7,7 @@ import reporting
 from copy import copy
 
 from dependency_graph import DependencyGraph
-from process import RemoteProcess, remote
+from process import RemoteProcess, remote, remote2
 
 
 class TaskScheduler(object):
@@ -118,17 +118,17 @@ class TaskScheduler(object):
         # TODO: move this in to some kind of FileRegistry...
         remote('mkdir -p {0}'.format(task.local_wd), task.host)
 
-        # open files to which we redirect stdout and stderr for the task
-        task.stderr = open(os.path.join(self.local_dir,
-                                        task.name + '.stderr'), 'w')
-        task.stdout = open(os.path.join(self.local_dir,
-                                        task.name + '.stdout'), 'w')
+        # Create bash script
+        remote2('cat - > {0}'.format(os.path.join(self.local_dir, task.name + '.sh')), task.host, task.code.strip())
 
-        process = RemoteProcess(task.code.strip(),
+        command = 'bash {0} 2> {1} > {2}'.format(os.path.join(self.local_dir, task.name + '.sh'),
+                                                 os.path.join(self.local_dir, task.name + '.stderr'),
+                                                 os.path.join(self.local_dir, task.name + '.stdout'))
+
+        process = RemoteProcess(command,
                                 task.host,
-                                cwd=task.local_wd,
-                                stderr=task.stderr,
-                                stdout=task.stdout)
+                                cwd=task.local_wd)
+
 
         self.scheduler.schedule(task, process)
 
@@ -148,9 +148,6 @@ class TaskScheduler(object):
         task.get_input()
 
     def on_task_done(self, task, errorcode):
-        task.stdout.close()
-        task.stderr.close()
-
         # move stdout and stderr to shared storage
         srcs = ' '.join([os.path.join(self.local_dir, task.name + '.stdout'),
                          os.path.join(self.local_dir, task.name + '.stderr')])
