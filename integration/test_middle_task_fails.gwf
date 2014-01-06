@@ -1,0 +1,28 @@
+@target TargetOne
+:output file_one
+
+touch file_one
+
+@target TargetTwo
+:input file_one
+:output file_two
+
+cat file_one > file_two
+
+@target TargetThree
+:input file_two
+:output file_three
+
+catttt file_two > file_three
+
+@target TargetFour
+:input file_three
+:output file_four
+
+cat file_three > file_four
+
+@target TargetFive
+:input file_four
+:output file_five
+
+cat file_four > file_five

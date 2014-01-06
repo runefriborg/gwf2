@@ -1,0 +1,4 @@
+@target TaskWhichFails
+:output blah.txt
+
+tttouch blah.txt
