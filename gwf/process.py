@@ -88,7 +88,7 @@ class LocalProcess(Process):
 
 class RemoteProcess(LocalProcess):
 
-    SSH_TEMPLATE = 'ssh {host} "cd {cwd} && {command}"'
+    SSH_TEMPLATE = 'ssh -c arcfour {host} "cd {cwd} && {command}"'
 
     def __init__(self, command, host, *args, **kwargs):
         if 'cwd' not in kwargs:
@@ -115,7 +115,6 @@ def remote2(command, node, stdindata, *args, **kwargs):
         sys.stdout.write(stdout)
     if stderr:
         sys.stderr.write(stderr)
-        
     return process.returncode
 
 def local(command, *args, **kwargs):

@@ -130,6 +130,7 @@ if not args.graph_key and args.local:
                               workflow,
                               schedule_tasks,
                               ProcessScheduler())
+
     scheduler.run()
 
 

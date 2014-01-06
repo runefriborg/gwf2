@@ -15,7 +15,16 @@ class ProcessScheduler(object):
         self.stopped = Event()
 
     def schedule(self, identifier, process):
+
+        # Do not schedule, if stopped
+        if self._stopped:
+            return
+
         self.before(identifier)
+
+        # If before stage failed and caused a stop, then abort
+        if self._stopped:
+            return
 
         # register process and then run it.
         self.processes[identifier] = process
@@ -24,12 +33,17 @@ class ProcessScheduler(object):
         self.started(identifier)
 
     def run(self):
-        while not self._stopped:
+        while True:
             for identifier, process in self.processes.items():
                 if process.poll() is not None:
                     self.done(identifier, process.returncode)
                     del self.processes[identifier]
-            time.sleep(1)
+
+            if not self.processes.items() and self._stopped:
+                # Stop
+                break
+            else:
+                time.sleep(1)
         self.stopped()
 
     def stop(self):

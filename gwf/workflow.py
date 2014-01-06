@@ -462,7 +462,7 @@ class Target(ExecutableTask):
                                       source=src,
                                       destination=dst)
 
-                if local('scp {0} {1}'.format(src, dst)) == 0:
+                if local('scp -c arcfour {0} {1}'.format(src, dst)) == 0:
                     self.transfer_success(task=self.name,
                                           source=src,
                                           destination=dst)
@@ -491,7 +491,7 @@ class Target(ExecutableTask):
                                   destination=out_file)
 
             # now copy the file to the workflow working directory
-            if remote('scp {0} {1}'.format(src, out_file), src_host) == 0:
+            if remote('cp {0} {1}'.format(src_path, out_file), src_host) == 0:
                 self.transfer_success(task=self.name,
                                       source=src,
                                       destination=out_file)
