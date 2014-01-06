@@ -10,7 +10,7 @@ class OneToManyToOneTest(IntegrationTestCase):
 
     def runTest(self):
         with Sandbox(self.requirements) as s:
-            s.run('gwf -l -f test_one_to_many_to_one.gwf')
+            s.run('gwf -l test_one_to_many_to_one.gwf')
             self.assertFileExists(os.path.join(s.sandbox_path, 'final'))
 
 if __name__ == '__main__':
