@@ -433,23 +433,15 @@ if __name__ == '__main__':
 
     args = parser.parse_args()
 
-<<<<<<< HEAD
     # Add zeros to job id
     if args.job:
         args.job = "00000"[len(args.job):]+args.job
-
-=======
->>>>>>> feature/integration-tests
     if args.list and (args.task or args.job):
         parser.error('argument -l/--list: cannot be used with other arguments.')
     if args.task and not args.job:
         parser.error('argument -j/--job: required by argument -t/--task.')
     if args.plot and not args.job:
-<<<<<<< HEAD
-        parser.error('argument -j/--job: required by argument -p/--plot.')
-=======
         parser.error('argument -p/--plot: required by argument -p/--plot.')
->>>>>>> feature/integration-tests
 
     if args.plot:
         plot(args.job, args.plot)
