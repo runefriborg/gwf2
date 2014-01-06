@@ -37,7 +37,7 @@ class Sandbox(object):
 
     def run(self, command):
         sandbox_environment = dict(os.environ)
-        sandbox_environment['GWF_SCRATCH_DIR'] = self.sandbox_scratch_path
+        sandbox_environment['GWF_SCRATCH'] = self.sandbox_scratch_path
         sandbox_environment['GWF_CONFIG_DIR'] = self.sandbox_config_path
         sandbox_environment['GWF_DEBUG'] = ''
 
