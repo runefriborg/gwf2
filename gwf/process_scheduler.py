@@ -33,12 +33,17 @@ class ProcessScheduler(object):
         self.started(identifier)
 
     def run(self):
-        while self.processes.items() or not self._stopped:
+        while True:
             for identifier, process in self.processes.items():
                 if process.poll() is not None:
                     self.done(identifier, process.returncode)
                     del self.processes[identifier]
-            time.sleep(1)
+
+            if not self.processes.items() and self._stopped:
+                # Stop
+                break
+            else:
+                time.sleep(1)
         self.stopped()
 
     def stop(self):

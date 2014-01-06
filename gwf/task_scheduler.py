@@ -28,7 +28,7 @@ class TaskScheduler(object):
 
         # Build a list of all the jobs that have not been completed yet.
         # Jobs should be removed from this list when they have completed.
-        self.missing = self.schedule
+        self.missing = copy(self.schedule)
 
         # This set contains all the running jobs.
         self.running = set()
@@ -88,6 +88,7 @@ class TaskScheduler(object):
             if dependency.can_execute and dependency in self.schedule:
                 if dependency in self.missing or dependency in self.running:
                     return False
+        
         return True
 
     def schedule_task(self, task):
@@ -118,10 +119,9 @@ class TaskScheduler(object):
         self.environment.nodes[task.host] -= task.cores
 
         # TODO: move this in to some kind of FileRegistry...
-        remote('mkdir -p {0}'.format(task.local_wd), task.host)
-
         # Create bash script
-        remote2('cat - > {0}'.format(os.path.join(self.local_dir, task.name + '.sh')), task.host, task.code.strip())
+        remote2('mkdir -p {0}'.format(task.local_wd) + ' && ' +
+                'cat - > {0}'.format(os.path.join(self.local_dir, task.name + '.sh')), task.host, task.code.strip())
 
         command = 'bash {0} 2> {1} > {2}'.format(os.path.join(self.local_dir, task.name + '.sh'),
                                                  os.path.join(self.local_dir, task.name + '.stderr'),
