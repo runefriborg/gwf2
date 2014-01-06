@@ -10,11 +10,7 @@ import json
 import gwf.reporting
 
 from gwf.parser import parse
-<<<<<<< HEAD
-from gwf.dependency_graph import DependencyGraph, Node
-=======
 from gwf.dependency_graph import DependencyGraph
->>>>>>> feature/integration-tests
 from gwf.task_scheduler import TaskScheduler
 from gwf.process_scheduler import ProcessScheduler
 from gwf.reporting import FileReporter
@@ -31,7 +27,6 @@ if os.getenv('GWF_DEBUG', False):
     logging.basicConfig(level=logging.DEBUG)
 else:
     logging.basicConfig(level=logging.CRITICAL)
-<<<<<<< HEAD
 
 parser = argparse.ArgumentParser(description='Run a gwf workflow, locally or through submitting the tasks to an OpenPBS scheduler. Examples "gwf -a workflow.gwf" or "gwf -l -t TargetB workflow.gwf')
 
@@ -96,7 +91,7 @@ if not args.graph_key and args.local:
                 print >> sys.stderr, 'target %s not found in workflow.' % target
                 sys.exit(1)
 
-    # Retrieve the list of all tasks 
+    # Retrieve the list of all tasks
     tasklist = graph.tasklist(workflow.target_names)
 
     # For every target name specified by the user, compute its dependencies
@@ -167,11 +162,11 @@ elif not args.graph_key and not args.local:
 
     # Retrieve the list of tasks to run
     targets_to_schedule = graph.schedule(workflow.target_names)
-    
+
     #groups_of_tasks_to_run = graph.schedule(workflow.target_names)
     #print groups_of_tasks_to_run
 
-    # Retrieve the list of all tasks 
+    # Retrieve the list of all tasks
     tasklist = graph.tasklist(workflow.target_names)
 
     # Always output status of tasks
@@ -302,7 +297,7 @@ else:
 
     # Split workflow
     groups = graph.split_workflow(workflow.target_names)
-    
+
     # Get group
     group = None
     g_id, g_pos = args.graph_key.split("___")
@@ -310,7 +305,7 @@ else:
         if g.id == g_id and g.pos == g_pos:
             group = g
             break
-    
+
     if not group:
         print >> sys.stderr, 'graph key %s not found.' % args.graph_key
         sys.exit(1)
@@ -322,7 +317,7 @@ else:
         if node.task in all_targets_to_schedule:
             schedule_tasks.append(node.task)
 
-    
+
 
     # get a suitable environment for this workflow instance.
     environment = get_environment()
@@ -347,132 +342,3 @@ else:
                               schedule_tasks,
                               ProcessScheduler())
     scheduler.run()
-
-
-
-=======
-
-parser = argparse.ArgumentParser(description='Run a gwf workflow, locally or through submitting the tasks to an OpenPBS scheduler.')
-
-#optgroup = parser.add_argument_group('optional arguments')
-parser.add_argument('-l', '--local', default=False, action='store_true',
-                    help='Run a workflow locally')
-parser.add_argument('-f', '--file',
-                    default='workflow.gwf', dest='workflow_file',
-                    help='workflow file if not the default (workflow.gwf)')
-
-exclgroup = parser.add_mutually_exclusive_group()
-exclgroup.add_argument('-a', '--all', default=False, action='store_true',
-                   help='run all end targets in the workflow (default)')
-exclgroup.add_argument('-t', '--targets', nargs='+',
-                   help='the target(s) to process.')
-
-pbsgroup = parser.add_argument_group('pbs specific arguments', 'These options will affect the qsub parameters for the job submitted. Local executions, using (-l) ignores these options.')
-
-pbsgroup.add_argument('-n', '--name',
-                    help='name of the job')
-pbsgroup.add_argument('-m', '--max-nodes', type=int,
-                    default=GWF_DEFAULT_MAX_NODES,
-                    help='the maximum number of nodes to use at any time')
-pbsgroup.add_argument('-w', '--walltime', default=GWF_DEFAULT_WALLTIME,
-                    help='duration of the entire pipeline in hours')
-pbsgroup.add_argument('-q', '--queue-name', default=GWF_DEFAULT_QUEUE,
-                    help='name of the queue to run the workflow in')
-pbsgroup.add_argument('-v', '--dryrun', default=False, action='store_true',
-                    help='Output qsub scripts without executing')
-
-args = parser.parse_args()
-
-
-# Create PBS JOB
-if not args.local:
-    template = '''#!/bin/sh
-#PBS -N {name}
-#PBS -q {queue_name}
-#PBS -l nodes={max_nodes}:ppn=16
-#PBS -l walltime={walltime}
-#PBS -d '''+os.getcwd()+'''
-
-gwf --local '''+' '.join(sys.argv[1:])+'''
-'''
-    complete_script = template.format(**vars(args))
-
-    if args.dryrun:
-        print(complete_script)
-    else:
-        process = subprocess.Popen("qsub",
-                                   shell=True,
-                                   stdin=subprocess.PIPE,
-                                   stdout=subprocess.PIPE,
-                                   stderr=subprocess.PIPE)
-
-        stdout, stderr = process.communicate(complete_script)
-        if not stdout.strip().endswith('.in'):
-            print stdout
-            print stderr
-            sys.exit(1)
-
-        job_id = stdout.strip()
-
-        shared_dir = os.path.join(GWF_CONFIG_DIR, 'jobs', job_id)
-        os.makedirs(shared_dir)
-        with open(os.path.join(shared_dir, 'environment'), 'w') as fp:
-            json.dump({'job_id': job_id}, fp)
-        print job_id
-
-    sys.exit(0)
-
-#####################################################################
-####################### ACTUAL EXECUTION STARTING ###################
-#####################################################################
-
-# parse workflow file
-workflow = parse(os.path.join(os.getcwd(), args.workflow_file))
-
-
-# If no targets have been specified, then execute all end targets.
-if not args.targets:
-    args.all = True
-
-
-# If all end targets should be run, we have to figure out what those
-# are and set the target names in the workflow.
-if args.all:
-    graph = DependencyGraph(workflow)
-    workflow.target_names = frozenset(node.task.name
-                                      for node in graph.end_targets)
-else:
-    workflow.target_names = args.targets
-    # check if all targets that we wish to run have been defined in the
-    # workflow.
-    for target in workflow.target_names:
-        if target not in workflow.targets:
-            print >> sys.stderr, 'target %s not found in workflow.' % target
-            sys.exit(1)
-
-
-# get a suitable environment for this workflow instance.
-environment = get_environment()
-logging.debug(environment)
-
-if not os.path.isdir(environment.scratch_dir):
-    os.makedirs(environment.scratch_dir)
-if not os.path.isdir(environment.config_dir):
-    os.makedirs(environment.config_dir)
-
-shared_dir = os.path.join(environment.config_dir, 'jobs', environment.job_id)
-if not os.path.isdir(shared_dir):
-    os.makedirs(shared_dir)
-
-# initialize file reporter such that it writes the log file to local
-# storage (scratch) until the reporter is finalized.
-reporter = FileReporter(tmp_dir=environment.scratch_dir, final_dir=shared_dir)
-reporter.report(gwf.reporting.WORKFLOW_QUEUED)
-
-# initialize a scheduler for the workflow and start the run loop.
-scheduler = TaskScheduler(environment,
-                          reporter,
-                          workflow,
-                          ProcessScheduler())
-scheduler.run()
->>>>>>> feature/integration-tests
