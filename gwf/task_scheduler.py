@@ -160,7 +160,7 @@ class TaskScheduler(object):
         if errorcode > 0:
             expl = 'task {0} stopped with non-zero error code {1}'
             self.reporter.report(reporting.TASK_FAILED,
-                                 explanation=expl.format(task.name, errorcode))
+                                 explanation=expl.format(task.name, errorcode), task=task.name)
             self.scheduler.stop()
 
         # if this task is the final task, we should copy its output files to

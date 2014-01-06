@@ -124,7 +124,7 @@ class ReportReader(object):
     def _task_completed(self, timestamp, task):
         self.workflow['tasks'][task]['completed_at'] = timestamp
 
-    def _task_failed(self, task, timestamp, explanation):
+    def _task_failed(self, timestamp, task, explanation):
         self.workflow['tasks'][task]['failure'] = {
             'timestamp': timestamp,
             'explanation': explanation
