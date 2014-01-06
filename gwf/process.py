@@ -1,3 +1,4 @@
+import sys
 import subprocess
 import logging
 
@@ -61,6 +62,9 @@ class LocalProcess(Process):
     def wait(self):
         self.process.wait()
 
+    def communicate(self, input=None):
+        return self.process.communicate(input)
+
     @property
     def running(self):
         return self.poll() is None
@@ -102,6 +106,17 @@ def remote(command, node, *args, **kwargs):
     process.wait()
     return process.returncode
 
+def remote2(command, node, stdindata, *args, **kwargs):
+    kwargs['stdin'] = subprocess.PIPE
+    process = RemoteProcess(command, node, *args, **kwargs)
+    process.run()
+    stdout, stderr = process.communicate(stdindata)
+    if stdout:
+        sys.stdout.write(stdout)
+    if stderr:
+        sys.stderr.write(stderr)
+        
+    return process.returncode
 
 def local(command, *args, **kwargs):
     process = LocalProcess(command, *args, **kwargs)

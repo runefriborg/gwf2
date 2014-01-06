@@ -68,9 +68,14 @@ class FakeEnvironment(Environment):
         if os.path.exists(os.path.join(os.path.expanduser('~'),".gwf/jobs")):
             previous_jobs = os.listdir(os.path.join(os.path.expanduser('~'),".gwf/jobs"))
             previous_jobs.sort()
-            try:
-                previous_job_id = int(previous_jobs[-1])
-            except ValueError:
+            while(previous_jobs):
+                try:
+                    previous_job_id = int(previous_jobs.pop())
+                    break
+                except ValueError:
+                    pass
+                except IndexError:
+                    pass
                 previous_job_id = 0
 
         job_id_int = previous_job_id + 1

@@ -10,9 +10,7 @@ from gwf.dependency_graph import DependencyGraph
 
 
 parser = argparse.ArgumentParser(description='Clean workflow files.')
-
-parser.add_argument('-f', '--file', required=True, dest='workflow_file',
-                    help='workflow file. e.g workflow.gwf')
+parser.add_argument('workflow_file', help='The .gwf file containing the workflow')
 
 args = parser.parse_args()
 

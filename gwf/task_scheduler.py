@@ -7,31 +7,22 @@ import reporting
 from copy import copy
 
 from dependency_graph import DependencyGraph
-from process import RemoteProcess, remote
+from process import RemoteProcess, remote, remote2
 
 
 class TaskScheduler(object):
 
-    def __init__(self, environment, reporter, workflow, scheduler):
+    def __init__(self, environment, reporter, workflow, schedule, scheduler):
         self.environment = environment
         self.reporter = reporter
         self.workflow = workflow
+        self.schedule = schedule
         self.scheduler = scheduler
 
         self.shared_dir = os.path.join(self.environment.config_dir, 'jobs',
                                        self.environment.job_id)
 
         self.local_dir = self.environment.scratch_dir
-
-        # build the dependency graph
-        self.graph = DependencyGraph(self.workflow)
-
-        # For every target name specified by the user, compute its dependencies
-        # and build a list of all tasks which must be run. self.schedule no
-        # returns topological sorting of the tasks, to help the scheduler with
-        # less searching for tasks to run. The scheduler will figure
-        # out the correct order to run tasks in.
-        self.schedule = self.graph.schedule(workflow.target_names)
 
         # Build a list of all the jobs that have not been completed yet.
         # Jobs should be removed from this list when they have completed.
@@ -127,17 +118,17 @@ class TaskScheduler(object):
         # TODO: move this in to some kind of FileRegistry...
         remote('mkdir -p {0}'.format(task.local_wd), task.host)
 
-        # open files to which we redirect stdout and stderr for the task
-        task.stderr = open(os.path.join(self.local_dir,
-                                        task.name + '.stderr'), 'w')
-        task.stdout = open(os.path.join(self.local_dir,
-                                        task.name + '.stdout'), 'w')
+        # Create bash script
+        remote2('cat - > {0}'.format(os.path.join(self.local_dir, task.name + '.sh')), task.host, task.code.strip())
 
-        process = RemoteProcess(task.code.strip(),
+        command = 'bash {0} 2> {1} > {2}'.format(os.path.join(self.local_dir, task.name + '.sh'),
+                                                 os.path.join(self.local_dir, task.name + '.stderr'),
+                                                 os.path.join(self.local_dir, task.name + '.stdout'))
+
+        process = RemoteProcess(command,
                                 task.host,
-                                cwd=task.local_wd,
-                                stderr=task.stderr,
-                                stdout=task.stdout)
+                                cwd=task.local_wd)
+
 
         self.scheduler.schedule(task, process)
 
@@ -157,9 +148,6 @@ class TaskScheduler(object):
         task.get_input()
 
     def on_task_done(self, task, errorcode):
-        task.stdout.close()
-        task.stderr.close()
-
         # move stdout and stderr to shared storage
         srcs = ' '.join([os.path.join(self.local_dir, task.name + '.stdout'),
                          os.path.join(self.local_dir, task.name + '.stderr')])
@@ -175,7 +163,7 @@ class TaskScheduler(object):
             self.scheduler.stop()
 
         # if this task is the final task, we should copy its output files to
-        # the the workflow directory.
+        # the workflow directory.
         if task.name in self.workflow.target_names or task.checkpoint:
             task.move_output(self.workflow.working_dir)
 
@@ -187,6 +175,11 @@ class TaskScheduler(object):
             dependency.references -= 1
             if dependency.references == 0:
                 self.cleanup(dependency)
+
+        # decrease references for own, task to avoid others preemptly doing a cleanup.
+        task.references -= 1
+        if task.references == 0:
+            self.cleanup(task)
 
         # figure out where this task was run and increment the number of cores
         # available on the host, since the job is now done.

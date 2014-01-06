@@ -377,8 +377,7 @@ class Target(ExecutableTask):
         if self.submit_args != None:
             self.submit = True
 
-        # Set default local_wd. If the task is executed, then the scheduler will overwrite
-        # this value
+        # Is changed, when the task is executed.
         self.local_wd = self.working_dir
 
         if 'dummy' in self.flags and len(self.output) > 0:
@@ -436,6 +435,25 @@ class Target(ExecutableTask):
                     self.transfer_success(task=self.name,
                                           source=src_path,
                                           destination=dst_path)
+            elif dependency.checkpoint:
+                self.transfer_started(task=self.name,
+                                      source=src_path,
+                                      destination=dst_path)
+
+                errorcode = remote('cp {0} {1}'.format(src_path, dst_path),
+                                   src_host)
+
+                if errorcode > 0:
+                    expl = 'could not copy file {0} to {1}'.format(src_path,
+                                                                   dst_path)
+                    self.transfer_failed(task=self.name,
+                                         source=src_path,
+                                         destination=dst_path,
+                                         explanation=expl)
+                else:
+                    self.transfer_success(task=self.name,
+                                          source=src_path,
+                                          destination=dst_path)                
             else:
                 src = ''.join([src_host, ':', src_path])
                 dst = ''.join([dst_host, ':', dst_path])
@@ -487,6 +505,10 @@ class Target(ExecutableTask):
     @property
     def checkpoint(self):
         return 'checkpoint' in self.flags
+
+    def set_checkpoint(self):
+        if not 'checkpoint' in self.flags:
+            self.flags.append('checkpoint')
 
     def __str__(self):
         return '@target %s, input(%s) -> output(%s)' % (
