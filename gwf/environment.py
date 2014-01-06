@@ -1,6 +1,5 @@
 import os
 import os.path
-import time
 import platform
 import logging
 import json

@@ -11,7 +11,7 @@ class PlotGenerationTest(IntegrationTestCase):
 
     def runTest(self):
         with Sandbox(self.requirements) as s:
-            s.run('gwf -l -f test_plot_generation.gwf')
+            s.run('gwf -l test_plot_generation.gwf')
 
             job_id = os.listdir(os.path.join(s.sandbox_config_path, 'jobs'))[0]
 

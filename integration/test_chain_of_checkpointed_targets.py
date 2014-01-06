@@ -11,7 +11,7 @@ class ChainOfCheckpointedTargetsTest(IntegrationTestCase):
 
     def runTest(self):
         with Sandbox(self.requirements) as s:
-            s.run('gwf -l -f test_chain_of_checkpointed_targets.gwf')
+            s.run('gwf -l test_chain_of_checkpointed_targets.gwf')
             self.assertNotFileExists(os.path.join(s.sandbox_path, 'file_one'))
             self.assertFileExists(os.path.join(s.sandbox_path, 'file_two'))
             self.assertNotFileExists(os.path.join(s.sandbox_path, 'file_three'))
