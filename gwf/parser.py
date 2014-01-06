@@ -173,6 +173,10 @@ def parse(fname):
         print 'Problems opening file %s.' % fname
         sys.exit(2)
 
+    # Add \n to beginning of file to ensure that we detect the first target
+    if workflow_text[0] == '@':
+        workflow_text = '\n' + workflow_text
+
     commands = workflow_text.split('\n@')[1:]
 
     parsed_commands = []
