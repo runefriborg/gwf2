@@ -453,7 +453,7 @@ class Target(ExecutableTask):
                 else:
                     self.transfer_success(task=self.name,
                                           source=src_path,
-                                          destination=dst_path)                
+                                          destination=dst_path)
             else:
                 src = ''.join([src_host, ':', src_path])
                 dst = ''.join([dst_host, ':', dst_path])

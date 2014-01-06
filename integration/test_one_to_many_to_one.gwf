@@ -1,0 +1,28 @@
+This test makes gwf go crazy for some reason. The proper files are not
+by Source, so a lot of transfers fail. Since the task succeeds, but the post-
+processing (moving the files) fails, gwf never closes the log file for Source.
+This makes it even harder to see what goes wrong.
+
+@shell in_file_names seq 0 10 | sed -e "s/^/f/" | tr "\n" " "
+@shell out_file_names seq 0 10 | sed -e "s/^/other.f/" | tr "\n" " "
+
+@target Source
+:input hej
+:output @in_file_names
+
+for n in {0..10}; do echo $n; done
+
+@template Reduce x
+:input {x}
+:output other.{x}
+
+cat {x} > other.{x}
+
+@template-target Reduce-{x} Reduce x=@in_file_names
+
+@target Sink
+:input @out_file_names
+:output final
+
+cat other.* > final
+

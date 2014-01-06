@@ -2,6 +2,8 @@ import sys
 import os.path
 import logging
 
+from itertools import chain
+
 import reporting
 
 from copy import copy
@@ -128,7 +130,6 @@ class TaskScheduler(object):
         process = RemoteProcess(command,
                                 task.host,
                                 cwd=task.local_wd)
-
 
         self.scheduler.schedule(task, process)
 

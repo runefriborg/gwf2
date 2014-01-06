@@ -1,0 +1,22 @@
+@target Source
+:output some_file_a some_file_b some_file_c
+
+touch some_file_a some_file_b some_file_c
+
+@target SinkOne
+:input some_file_a
+:output final_a
+
+cat some_file_a > final_a
+
+@target SinkTwo
+:input some_file_b
+:output final_b
+
+cat some_file_b > final_b
+
+@target SinkThree
+:input some_file_c
+:output final_c
+
+cat some_file_c > final_c

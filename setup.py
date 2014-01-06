@@ -23,12 +23,17 @@ setup(
     license = "GNU GPLv3",
     url = "https://github.com/mailund/gwf",
 
-    packages=['gwf', 'tests'],
+    packages=['gwf', 'tests', 'integration'],
     scripts=['scripts/gwf',
              'scripts/gwf-status',
              'scripts/gwf-clean',
              'scripts/gwf-workflow-graph',
              'scripts/gwf-print-lists'],
+
+    include_package_data=True,
+    package_data={
+        'gwf': ['templates/*.plot']
+    },
 
     include_package_data=True,
     package_data={

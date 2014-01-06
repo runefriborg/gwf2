@@ -8,9 +8,17 @@ from gwf.graphviz import print_graphviz
 
 parser = argparse.ArgumentParser(description='Show a workflow graph.')
 
+<<<<<<< HEAD
 parser.add_argument('workflow_file', help='The .gwf file containing the workflow')
 
 parser.add_argument('output', nargs='?', default='default.dot',
+=======
+parser.add_argument('-f', '--file',
+                    default='workflow.gwf', dest='workflow_file',
+                    help='Workflow file if not the default (workflow.gwf).')
+
+parser.add_argument('output', nargs='?', default='workflow.dot',
+>>>>>>> feature/integration-tests
                     help='File to write the workflow graph to.')
 
 args = parser.parse_args()

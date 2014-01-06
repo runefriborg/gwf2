@@ -97,7 +97,6 @@ class FakeEnvironment(Environment):
                                         self.job_id)
         if not os.path.isdir(user_scratch_dir):
             os.makedirs(user_scratch_dir)
-
         return user_scratch_dir
 
 
@@ -108,5 +107,4 @@ def get_environment():
         return PBSEnvironment()
 
     # Here we can add other environments for other batch systems, such as LoadLeveler.
-
     return FakeEnvironment()

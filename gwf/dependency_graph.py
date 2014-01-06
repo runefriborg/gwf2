@@ -136,7 +136,7 @@ class DependencyGraph(object):
 
         # reset (set to 1, as the on_task_done function also gets a reference)
         for node in self.nodes.values():
-            node.task.references= 1
+            node.task.references = 1
 
         # count
         def dfs(node):
@@ -237,7 +237,7 @@ class DependencyGraph(object):
                         if dep.task.can_execute:
                             if self.mapNodeToGroup[node] != self.mapNodeToGroup[dep]:
                                 self.mapNodeToGroup[node].dependencies.add(self.mapNodeToGroup[dep])
-                                
+
                                 # set dependency node to checkpoint to force output to shared disk
                                 dep.task.set_checkpoint()
 
@@ -279,7 +279,7 @@ class DependencyGraph(object):
 
                 for _, dep in node.dependencies:
                     dfs(dep)
-            
+
 
         for root in roots:
             dfs(root)
@@ -294,7 +294,7 @@ class DependencyGraph(object):
         Arrange the tasks in the workflow into groups of tasks, based on which tasks
         have the submit flag enabled.
 
-        For each task with a submit flag, devide the set into four groups.. 
+        For each task with a submit flag, devide the set into four groups..
           * The tasks before the submit task
           * The tasks after the submit task
           * The task
@@ -340,7 +340,7 @@ class DependencyGraph(object):
                 # make two new groups
                 g.append([node.task])
                 g.append(g[0])
-                g[0] = [[]] 
+                g[0] = [[]]
             else:
                 # old group
                 g[0].append(node.task)
