@@ -11,7 +11,7 @@ class WorkflowGraphTest(IntegrationTestCase):
 
     def runTest(self):
         with Sandbox(self.requirements) as s:
-            s.run('gwf-workflow-graph -f test_one_target_of_multiple.gwf')
+            s.run('gwf-workflow-graph test_one_target_of_multiple.gwf')
             self.assertFileExists(os.path.join(s.sandbox_path, 'workflow.dot'))
 
 if __name__ == '__main__':
