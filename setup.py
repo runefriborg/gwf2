@@ -35,11 +35,6 @@ setup(
         'gwf': ['templates/*.plot']
     },
 
-    include_package_data=True,
-    package_data={
-        'gwf': ['templates/*.plot']
-    },
-
     test_suite='tests',
 
     classifiers=[
