@@ -7,14 +7,12 @@ from integration import IntegrationTestCase
 
 
 def wait(command):
-    out = subprocess.check_output(command)
+    out = subprocess.check_output(command, shell=True)
     ids = [line for line in out.splitlines() if line.endswith('.in')]
     return subprocess.check_output('qwait ' + ' '.join(ids))
 
 
 class SubmitLinearWorkflowTest(IntegrationTestCase):
-
-    requirements = ['test_chain_of_checkpointed_targets.gwf']
 
     def runTest(self):
         wait('gwf test_chain_of_checkpointed_targets.gwf')
@@ -26,8 +24,6 @@ class SubmitLinearWorkflowTest(IntegrationTestCase):
 
 
 class SubmitOneToManyToOneWorkflowTest(IntegrationTestCase):
-
-    requirements = ['test_one_to_many_to_one.gwf']
 
     def runTest(self):
         wait('gwf test_one_to_many_to_one.gwf')
