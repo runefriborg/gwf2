@@ -4,29 +4,26 @@ import unittest
 from integration import IntegrationTestCase, Sandbox
 
 
-# class OneTaskFailsTest(IntegrationTestCase):
+class OneTaskFailsTest(IntegrationTestCase):
 
-#     requirements = ['test_one_task_fails.gwf']
+    requirements = ['test_one_task_fails.gwf']
 
-#     def runTest(self):
-#         with Sandbox(self.requirements) as s:
-#             s.run('gwf -l test_one_task_fails.gwf')
-#             self.assertTrue(s.run('gwf-status').find("failed") > -1)
+    def runTest(self):
+        with Sandbox(self.requirements) as s:
+            s.run('gwf -l test_one_task_fails.gwf')
+            self.assertTrue(s.run('gwf-status').find("failed") > -1)
 
 
-# class MiddleTaskFailsTest(IntegrationTestCase):
+class MiddleTaskFailsTest(IntegrationTestCase):
 
-#     requirements = ['test_middle_task_fails.gwf']
+    requirements = ['test_middle_task_fails.gwf']
 
-#     def runTest(self):
-#         with Sandbox(self.requirements) as s:
-#             s.run('gwf -l test_middle_task_fails.gwf')
-
-#             self.assertTrue(s.run('gwf-status --no-color -j 00001').find("TargetOne   C") > -1)
-#             self.assertTrue(s.run('gwf-status --no-color -j 00001').find("TargetTwo   C") > -1)
-#             self.assertTrue(s.run('gwf-status --no-color -j 00001').find("TargetThree F") > -1)
-#             self.assertTrue(s.run('gwf-status --no-color -j 00001').find("TargetFour  F") > -1)
-#             self.assertTrue(s.run('gwf-status --no-color -j 00001').find("TargetFive  F") > -1)
+    def runTest(self):
+        with Sandbox(self.requirements) as s:
+            s.run('gwf -l test_middle_task_fails.gwf')
+            self.assertTrue(s.run('gwf-status --no-color -j 00001').find("TargetOne   C") > -1)
+            self.assertTrue(s.run('gwf-status --no-color -j 00001').find("TargetTwo   C") > -1)
+            self.assertTrue(s.run('gwf-status --no-color -j 00001').find("TargetThree F") > -1)
 
 
 class StatusDuringRunTest(IntegrationTestCase):
