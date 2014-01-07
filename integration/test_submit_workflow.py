@@ -1,14 +1,15 @@
 import os.path
 import unittest
 
+import subprocess
+
 from integration import IntegrationTestCase
-from gwf.process import local
 
 
 def wait(command):
-    out = local(command)
+    out = subprocess.check_output(command)
     ids = [line for line in out.splitlines() if line.endswith('.in')]
-    local('qwait ' + ' '.join(ids))
+    return subprocess.check_output('qwait ' + ' '.join(ids))
 
 
 class SubmitLinearWorkflowTest(IntegrationTestCase):
