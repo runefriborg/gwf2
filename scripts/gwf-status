@@ -430,8 +430,13 @@ if __name__ == '__main__':
     parser.add_argument('-p', '--plot', choices=PLOTS.keys(),
                         help='if a running job is given, plots the timeline ' +
                              'of the job using gnuplot')
+    parser.add_argument('--no-color', action='store_true', default=False,
+                        help='turn off colors for status output')
 
     args = parser.parse_args()
+
+    if args.no_color:
+        gwf.colors.off()
 
     # Add zeros to job id
     if args.job:

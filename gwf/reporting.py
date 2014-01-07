@@ -86,9 +86,9 @@ class ReportReader(object):
     def write(self, entry):
         if isinstance(entry, str):
             entry = json.loads(entry)
-            entry[0] = datetime.datetime.fromtimestamp(entry[0])
         timestamp, event, data = entry
-        timestamp = datetime.datetime.fromtimestamp(timestamp)
+        if not isinstance(timestamp, datetime.datetime):
+            timestamp = datetime.datetime.fromtimestamp(timestamp)
 
         self.events.append((timestamp, event, data))
         self.handlers[event](timestamp, **data)

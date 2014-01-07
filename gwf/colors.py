@@ -9,8 +9,19 @@ COLORS = {
 
 CLEAR = '\033[0m'
 
+ACTIVATED = True
+
 globals_map = globals()
 for color, code in COLORS.items():
-    globals_map[color] = (lambda x, code=code: code + x + CLEAR)
+    globals_map[color] = (lambda x, code=code: code + x + CLEAR
+                          if ACTIVATED else x)
 
-__all__ = COLORS.keys()
+
+def off():
+    globals()['ACTIVATED'] = False
+
+
+def on():
+    globals()['ACTIVATED'] = True
+
+__all__ = COLORS.keys() + ['on', 'off']
