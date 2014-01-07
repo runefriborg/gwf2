@@ -1,0 +1,16 @@
+@target TargetOne
+:output file_one
+
+touch file_one
+
+@target TargetTwo
+:input file_one
+:output file_two
+
+sleep 5; catttt file_one > file_two
+
+@target TargetThree
+:input file_two
+:output file_three
+
+sleep 10; cat file_three > file_three
