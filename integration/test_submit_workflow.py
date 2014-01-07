@@ -9,7 +9,7 @@ from integration import IntegrationTestCase
 def wait(command):
     out = subprocess.check_output(command, shell=True)
     ids = [line for line in out.splitlines() if line.endswith('.in')]
-    return subprocess.check_output('qwait ' + ' '.join(ids))
+    return subprocess.check_output('qwait ' + ' '.join(ids), shell=True)
 
 
 class SubmitLinearWorkflowTest(IntegrationTestCase):
