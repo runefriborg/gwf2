@@ -1,5 +1,6 @@
-#!/Users/mailund/anaconda/bin/python
+#!/usr/bin/env python
 
+import sys
 import argparse
 
 from gwf.parser import parse
@@ -12,15 +13,50 @@ parser.add_argument('workflow_file', help='The .gwf file containing the workflow
 
 parser.add_argument('output', nargs='?', default=None,
                     help='File to write the workflow graph to.')
+parser.add_argument('-b', '--hide-boxes', default=False, action='store_true',
+                    help='hide boxes in output')
+
+exclgroup = parser.add_mutually_exclusive_group()
+exclgroup.add_argument('-t', '--targets', nargs='+',
+                   help='the target(s) to process.')
+exclgroup.add_argument('-a', '--all', default=False, action='store_true',
+                   help='all end targets (default)')
 
 args = parser.parse_args()
+
+# If no targets have been specified, then select all
+if not args.targets:
+    args.all = True
 
 if args.output is None:
     args.output = args.workflow_file + '.dot'
 
-
+# parse workflow file
 workflow = parse(args.workflow_file)
+
+# If all end targets are selected, we have to figure out what those
+# are and set the target names in the workflow.
+if args.all:
+    graph = DependencyGraph(workflow)
+    workflow.target_names = frozenset(node.task.name
+                                      for node in graph.end_targets)
+else:
+    workflow.target_names = args.targets
+    # check if all targets have been defined in the
+    # workflow.
+    for target in workflow.target_names:
+        if target not in workflow.targets:
+            print >> sys.stderr, 'target %s not found in workflow.' % target
+            sys.exit(1)
+
+# build the dependency graph
 graph = DependencyGraph(workflow)
 
+# Construct the splitting of workflows
+groups = graph.split_workflow(workflow.target_names)
+
+# Retrieve the list of all tasks in the dependency path to the specified targets
+tasklist = graph.tasklist(workflow.target_names)
+
 with open(args.output, 'w') as out:
-    print_graphviz(graph, out)
+    print_graphviz(graph, tasklist, groups, args.hide_boxes, out)

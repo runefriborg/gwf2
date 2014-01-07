@@ -164,9 +164,6 @@ elif not args.graph_key and not args.local:
     # Retrieve the list of tasks to run
     targets_to_schedule = graph.schedule(workflow.target_names)
 
-    #groups_of_tasks_to_run = graph.schedule(workflow.target_names)
-    #print groups_of_tasks_to_run
-
     # Retrieve the list of all tasks
     tasklist = graph.tasklist(workflow.target_names)
 
@@ -176,7 +173,6 @@ elif not args.graph_key and not args.local:
             print("Run\t" + t.name)
         else:
             print("Skip\t" + t.name)
-
 
 
     groups = graph.split_workflow(workflow.target_names)
