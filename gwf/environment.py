@@ -12,8 +12,10 @@ class Environment(object):
 
     @property
     def config_dir(self):
-        return os.getenv('GWF_CONFIG_DIR',
-                         os.path.expanduser('~/.gwf/'))
+        path = os.getenv('GWF_CONFIG_DIR', os.path.expanduser('~/.gwf/'))
+        if not os.path.exists(path):
+            os.makedirs(path)
+        return path
 
     @property
     def mother_node(self):
@@ -64,8 +66,8 @@ class FakeEnvironment(Environment):
 
         # Lookup next jobid
         previous_job_id = 0
-        if os.path.exists(os.path.join(os.path.expanduser('~'),".gwf/jobs")):
-            previous_jobs = os.listdir(os.path.join(os.path.expanduser('~'),".gwf/jobs"))
+        if os.path.exists(os.path.join(self.config_dir, 'jobs')):
+            previous_jobs = os.listdir(os.path.join(self.config_dir, 'jobs'))
             previous_jobs.sort()
             while(previous_jobs):
                 try:
