@@ -203,7 +203,7 @@ gwf -k '''+g.id+'___'+g.pos+' '
 
         if args.dryrun:
             print(complete_script)
-            xsubIdMap[g] = g.id+','+g.pos
+            xsubIdMap[g] = g.id+'___'+g.pos
         else:
             process = subprocess.Popen("qsub -W depend=afterok:" + ":".join(depIds),
                                        shell=True,
