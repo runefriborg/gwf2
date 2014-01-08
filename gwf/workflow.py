@@ -219,7 +219,6 @@ class Task(object):
         self.name = name
         self.dependencies = dependencies
         self.working_dir = wd
-        self.is_dummy = False
         self.host = platform.node()
 
         self.transfer_started = Event()
@@ -255,10 +254,6 @@ class Task(object):
         raise NotImplementedError()
 
     @property
-    def dummy(self):
-        return self.is_dummy
-
-    @property
     def execution_error(self):
         '''Should return an error message if a task that cannot execute
         is scheduled for execution.'''
@@ -278,7 +273,6 @@ class SystemFile(Task):
 
     def __init__(self, filename, wd):
         Task.__init__(self, filename, [], wd)
-        self.is_dummy = True
 
     @property
     def file_exists(self):
@@ -379,12 +373,6 @@ class Target(ExecutableTask):
 
         # Is changed, when the task is executed.
         self.local_wd = self.working_dir
-
-        if 'dummy' in self.flags and len(self.output) > 0:
-            print 'Target %s is marked as a dummy target but has output files.'
-            print 'Dummy targets will never be run so cannot produce output!'
-            sys.exit(2)
-        self.is_dummy = 'dummy' in self.flags
 
     def get_input(self):
         for in_file, dependency in self.dependencies:

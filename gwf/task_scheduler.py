@@ -95,8 +95,8 @@ class TaskScheduler(object):
         '''Schedule a single task if all dependencies have been computed'''
         logging.debug('scheduling task=%s', task.name)
 
-        # skip dummy tasks that we shouldn't submit...
-        if task.dummy or not task.can_execute:
+        # skip tasks that we shouldn't submit...
+        if not task.can_execute:
             return
 
         # If all dependencies are done, we may schedule this task.

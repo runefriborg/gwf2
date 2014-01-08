@@ -33,7 +33,7 @@ def parse_target(target_code, working_dir):
     xsub = None
 
     for i in xrange(1, len(lines)):
-        line = lines[i]
+        line = lines[i].strip()
         if line.startswith(':'):
             # the line is an opcode for targets
             if line.startswith(':input'):
@@ -53,15 +53,13 @@ def parse_target(target_code, working_dir):
             elif line.startswith(':cores'):
                 cores = int(line.split()[1])
 
-            elif line.startswith(':memory'):
+            # TODO!!!! not handled yet
+            elif line.startswith(':mem'):
                 memory = int(line.split()[1])
 
-            elif line.startswith(':dummy'):
-                flags.append('dummy')
-
             else:
-                print "Unknown opcode %s in target %s." % (line, name)
-                sys.exit(2)
+                sys.stderr.write("Unknown opcode '%s' in target %s.\n" % (line.strip(), name))
+                sys.exit(1)
 
         else:
             # assumes everything after the opcodes is the script
