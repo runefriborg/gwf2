@@ -60,6 +60,7 @@ class SubmitGroup(object):
         self.id = id
         self.pos = pos
         self.nodes = nodes
+        self.submit_args = None
 
         # Dependencies are added at a finalize stage
         self.dependencies = set()
@@ -222,6 +223,11 @@ class DependencyGraph(object):
 
             def add(self, id, pos, nodes):
                 s = SubmitGroup(id, pos, nodes)
+
+                # Add arguments for scheduler
+                if pos=='task':
+                    s.submit_args = nodes[0].task.submit_args
+
                 self.groups.append(s)
                 for n in s.nodes:
                     self.mapNodeToGroup[n] = s

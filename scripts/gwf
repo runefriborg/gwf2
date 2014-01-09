@@ -14,12 +14,14 @@ from gwf.dependency_graph import DependencyGraph
 from gwf.task_scheduler import TaskScheduler
 from gwf.process_scheduler import ProcessScheduler
 from gwf.reporting import FileReporter
-
 from gwf.environment import get_environment
+from gwf.runner.pbs import PBSRunner
 
-GWF_DEFAULT_MAX_NODES = int(os.getenv('GWF_DEFAULT_MAX_NODES', '2'))
-GWF_DEFAULT_WALLTIME = os.getenv('GWF_DEFAULT_WALLTIME', '48:0:0')
-GWF_DEFAULT_QUEUE = os.getenv('GWF_DEFAULT_QUEUE', 'normal')
+GWF_DEFAULT_NODES       = int(os.getenv('GWF_DEFAULT_NODES', '1'))
+GWF_DEFAULT_WALLTIME    = os.getenv('GWF_DEFAULT_WALLTIME', '48:0:0')
+GWF_DEFAULT_QUEUE       = os.getenv('GWF_DEFAULT_QUEUE', 'normal')
+GWF_DEFAULT_CORES       = int(os.getenv('GWF_DEFAULT_CORES', '16'))
+GWF_DEFAULT_CUSTOM_ARGS = os.getenv('GWF_DEFAULT_CUSTOM_ARGS', '')
 
 GWF_CONFIG_DIR = os.getenv('GWF_CONFIG_DIR', os.path.expanduser('~/.gwf/'))
 
@@ -46,17 +48,22 @@ parser.add_argument('-k', '--graph-key',
 
 pbsgroup = parser.add_argument_group('pbs specific arguments', 'These options will affect the qsub parameters for the job submitted. Local executions, using (-l) ignores these options.')
 
-pbsgroup.add_argument('-n', '--name',
+pbsgroup.add_argument('-N', '--name',
                     help='name of the job')
-pbsgroup.add_argument('-m', '--max-nodes', type=int,
-                    default=GWF_DEFAULT_MAX_NODES,
-                    help='the maximum number of nodes to use at any time')
+pbsgroup.add_argument('-n', '--nodes', type=int,
+                    default=GWF_DEFAULT_NODES,
+                    help='the number of nodes to acquire for each job')
+pbsgroup.add_argument('-c', '--cores', type=int,
+                    default=GWF_DEFAULT_CORES,
+                    help='the number of cores to acquire for each job')
 pbsgroup.add_argument('-w', '--walltime', default=GWF_DEFAULT_WALLTIME,
                     help='duration of the entire pipeline in hours')
-pbsgroup.add_argument('-q', '--queue-name', default=GWF_DEFAULT_QUEUE,
+pbsgroup.add_argument('-q', '--queue', default=GWF_DEFAULT_QUEUE,
                     help='name of the queue to run the workflow in')
+pbsgroup.add_argument('-C', '--custom', default=GWF_DEFAULT_CUSTOM_ARGS,
+                    help='custom args for job scheduler')
 pbsgroup.add_argument('-v', '--dryrun', default=False, action='store_true',
-                    help='Output qsub scripts without executing')
+                    help='Output job scripts without executing')
 
 args = parser.parse_args()
 
@@ -182,42 +189,24 @@ elif not args.graph_key and not args.local:
     xsubIdMap={}
     xsubSkipped=[]
 
-    def submit(g, depIds):
-        # Create PBS job
-        template = '''#!/bin/sh
-#PBS -N {name}
-#PBS -q {queue_name}
-#PBS -l nodes={max_nodes}:ppn=16
-#PBS -l walltime={walltime}
-#PBS -d '''+os.getcwd()+'''
-#Dependencies: '''+str(depIds)+'''
+    runner= PBSRunner(args)
+    
+    def setup_job(g, depIds):
+        ''' Setup and submit job to runner '''
 
-gwf -k '''+g.id+'___'+g.pos+' '
+        gwfcommand = 'gwf -k '+g.id+'___'+g.pos
 
         if args.targets:
-            template += '-t '+' '.join(args.targets)
+            gwfcommand += ' -t '+' '.join(args.targets)
 
-        template += ' {workflow_file}'
-
-        complete_script = template.format(**vars(args))
+        gwfcommand += ' {workflow_file}'.format(workflow_file=args.workflow_file)
 
         if args.dryrun:
-            print(complete_script)
+            print("--")
+            runner.dryrun(gwfcommand, depIds)
             xsubIdMap[g] = g.id+'___'+g.pos
         else:
-            process = subprocess.Popen("qsub -W depend=afterok:" + ":".join(depIds),
-                                       shell=True,
-                                       stdin=subprocess.PIPE,
-                                       stdout=subprocess.PIPE,
-                                       stderr=subprocess.PIPE)
-
-            stdout, stderr = process.communicate(complete_script)
-            if not stdout.strip().endswith('.in'):
-                print stdout
-                print stderr
-                sys.exit(1)
-
-            job_id = stdout.strip()
+            job_id = runner.submit(gwfcommand, depIds)
 
             shared_dir = os.path.join(GWF_CONFIG_DIR, 'jobs', job_id)
             if not os.path.exists(shared_dir):
@@ -254,7 +243,8 @@ gwf -k '''+g.id+'___'+g.pos+' '
 
                 # Are all dependencies submitted?
                 if len(g.dependencies) == (len(depIds) + skipped):
-                    submit(g, depIds)
+                    # All systems set. Go!
+                    setup_job(g, depIds)
                 else:
                     groups.append(g)
 

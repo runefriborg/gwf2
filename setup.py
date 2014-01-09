@@ -23,7 +23,7 @@ setup(
     license = "GNU GPLv3",
     url = "https://github.com/mailund/gwf",
 
-    packages=['gwf', 'tests', 'integration'],
+    packages=['gwf/runner', 'gwf', 'tests', 'integration'],
     scripts=['scripts/gwf',
              'scripts/gwf-status',
              'scripts/gwf-clean',
