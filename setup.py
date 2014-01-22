@@ -10,29 +10,29 @@ def read(fname):
     return open(os.path.join(os.path.dirname(__file__), fname)).read()
 
 setup(
-    name = "gwf",
-    version = "0.4.0",
+    name = "gwf2",
+    version = "2.0.1",
 
-    author = "Thomas Mailund",
-    author_email = "mailund@birc.au.dk",
+    author = "Rune Friborg",
+    author_email = "runef@birc.au.dk",
 
     description = ("Grid WorkFlow - a make-like system for"
                    "submitting jobs through qsub."),
     long_description=read('README.md'),
     keywords = "qsub make",
     license = "GNU GPLv3",
-    url = "https://github.com/mailund/gwf",
+    url = "https://github.com/runefriborg/gwf",
 
-    packages=['gwf/runner', 'gwf', 'tests', 'integration'],
-    scripts=['scripts/gwf',
-             'scripts/gwf-status',
-             'scripts/gwf-clean',
-             'scripts/gwf-workflow-graph',
-             'scripts/gwf-print-lists'],
+    packages=['gwf2/runner', 'gwf2', 'tests', 'integration'],
+    scripts=['scripts/gwf2',
+             'scripts/gwf2-status',
+             'scripts/gwf2-clean',
+             'scripts/gwf2-workflow-graph',
+             'scripts/gwf2-print-lists'],
 
     include_package_data=True,
     package_data={
-        'gwf': ['templates/*.plot']
+        'gwf2': ['templates/*.plot']
     },
 
     test_suite='tests',

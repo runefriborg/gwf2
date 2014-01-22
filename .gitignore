@@ -2,5 +2,5 @@
 build
 tests/.scripts
 dist/*
-gwf.egg*
+gwf2.egg*
 workflow.dot
