@@ -1,0 +1,331 @@
+#!/usr/bin/env python
+
+import os
+import sys
+import argparse
+import subprocess
+import logging
+import json
+
+import gwf2.reporting
+
+from gwf2.parser import parse
+from gwf2.dependency_graph import DependencyGraph
+from gwf2.task_scheduler import TaskScheduler
+from gwf2.process_scheduler import ProcessScheduler
+from gwf2.reporting import FileReporter
+from gwf2.environment import get_environment
+from gwf2.runner.pbs import PBSRunner
+
+GWF_DEFAULT_NODES       = int(os.getenv('GWF_DEFAULT_NODES', '1'))
+GWF_DEFAULT_WALLTIME    = os.getenv('GWF_DEFAULT_WALLTIME', '48:0:0')
+GWF_DEFAULT_QUEUE       = os.getenv('GWF_DEFAULT_QUEUE', 'normal')
+GWF_DEFAULT_CORES       = int(os.getenv('GWF_DEFAULT_CORES', '16'))
+GWF_DEFAULT_CUSTOM_ARGS = os.getenv('GWF_DEFAULT_CUSTOM_ARGS', '')
+
+GWF_CONFIG_DIR = os.getenv('GWF_CONFIG_DIR', os.path.expanduser('~/.gwf2/'))
+
+if os.getenv('GWF_DEBUG', False):
+    logging.basicConfig(level=logging.DEBUG)
+else:
+    logging.basicConfig(level=logging.CRITICAL)
+
+parser = argparse.ArgumentParser(description='Run a gwf workflow, locally or through submitting the tasks to an OpenPBS scheduler. Examples "gwf2 -a workflow.gwf" or "gwf2 -l -t TargetB workflow.gwf')
+
+#optgroup = parser.add_argument_group('optional arguments')
+parser.add_argument('-l', '--local', default=False, action='store_true',
+                    help='Run a workflow locally')
+parser.add_argument('workflow_file', help='The .gwf file containing the workflow')
+
+exclgroup = parser.add_mutually_exclusive_group()
+exclgroup.add_argument('-t', '--targets', nargs='+',
+                   help='the target(s) to process.')
+exclgroup.add_argument('-a', '--all', default=False, action='store_true',
+                   help='run all end targets in the workflow (default)')
+parser.add_argument('-k', '--graph-key',
+                    default=None,
+                    help='')
+
+pbsgroup = parser.add_argument_group('pbs specific arguments', 'These options will affect the qsub parameters for the job submitted. Local executions, using (-l) ignores these options.')
+
+pbsgroup.add_argument('-N', '--name',
+                    help='name of the job')
+pbsgroup.add_argument('-n', '--nodes', type=int,
+                    default=GWF_DEFAULT_NODES,
+                    help='the number of nodes to acquire for each job')
+pbsgroup.add_argument('-c', '--cores', type=int,
+                    default=GWF_DEFAULT_CORES,
+                    help='the number of cores to acquire for each job')
+pbsgroup.add_argument('-w', '--walltime', default=GWF_DEFAULT_WALLTIME,
+                    help='duration of the entire pipeline in hours')
+pbsgroup.add_argument('-q', '--queue', default=GWF_DEFAULT_QUEUE,
+                    help='name of the queue to run the workflow in')
+pbsgroup.add_argument('-C', '--custom', default=GWF_DEFAULT_CUSTOM_ARGS,
+                    help='custom args for job scheduler')
+pbsgroup.add_argument('-v', '--dryrun', default=False, action='store_true',
+                    help='Output job scripts without executing')
+
+args = parser.parse_args()
+
+
+# If no targets have been specified, then execute all end targets.
+if not args.targets:
+    args.all = True
+
+
+if not args.graph_key and args.local:
+    #####################################################################
+    ####################### Run Local Execution  ########################
+    #####################################################################
+
+    # parse workflow file
+    workflow = parse(os.path.join(os.getcwd(), args.workflow_file))
+
+    # build the dependency graph
+    graph = DependencyGraph(workflow)
+
+    # If all end targets should be run, we have to figure out what those
+    # are and set the target names in the workflow.
+    if args.all:
+        workflow.target_names = frozenset(node.task.name
+                                          for node in graph.end_targets)
+    else:
+        workflow.target_names = args.targets
+        # check if all targets that we wish to run have been defined in the
+        # workflow.
+        for target in workflow.target_names:
+            if target not in workflow.targets:
+                print >> sys.stderr, 'target %s not found in workflow.' % target
+                sys.exit(1)
+
+    # Retrieve the list of all tasks
+    tasklist = graph.tasklist(workflow.target_names)
+
+    # For every target name specified by the user, compute its dependencies
+    # and build a list of all tasks which must be run. self.schedule no
+    # returns topological sorting of the tasks, to help the scheduler with
+    # less searching for tasks to run. The scheduler will figure
+    # out the correct order to run tasks in.
+    schedule_tasks = graph.schedule(workflow.target_names)
+
+    # Always output status of tasks
+    for t in tasklist:
+        if t in schedule_tasks:
+            print("Run\t" + t.name)
+        else:
+            print("Skip\t" + t.name)
+
+    # get a suitable environment for this workflow instance.
+    environment = get_environment()
+    logging.debug(environment)
+
+    shared_dir = os.path.join(environment.config_dir, 'jobs', environment.job_id)
+    if not os.path.exists(shared_dir):
+        os.makedirs(shared_dir)
+
+    # initialize file reporter such that it writes the log file to local
+    # storage (scratch) until the reporter is finalized.
+    reporter = FileReporter(tmp_dir=environment.scratch_dir, final_dir=shared_dir)
+    reporter.report(gwf2.reporting.WORKFLOW_QUEUED)
+
+    # Count references
+    graph.update_reference_counts()
+
+    # initialize a scheduler for the workflow and start the run loop.
+    scheduler = TaskScheduler(environment,
+                              reporter,
+                              workflow,
+                              schedule_tasks,
+                              ProcessScheduler())
+
+    scheduler.run()
+
+
+elif not args.graph_key and not args.local:
+    #####################################################################
+    ######## Construct clustering of graph and submit jobs ##############
+    #####################################################################
+
+    # parse workflow file
+    workflow = parse(args.workflow_file)
+
+    # If all end targets should be run, we have to figure out what those
+    # are and set the target names in the workflow.
+    if args.all:
+        graph = DependencyGraph(workflow)
+        workflow.target_names = frozenset(node.task.name
+                                      for node in graph.end_targets)
+    else:
+        workflow.target_names = args.targets
+        # check if all targets that we wish to run have been defined in the
+        # workflow.
+        for target in workflow.target_names:
+            if target not in workflow.targets:
+                print >> sys.stderr, 'target %s not found in workflow.' % target
+                sys.exit(1)
+
+
+    # build the dependency graph
+    graph = DependencyGraph(workflow)
+
+    # Retrieve the list of tasks to run
+    targets_to_schedule = graph.schedule(workflow.target_names)
+
+    # Retrieve the list of all tasks
+    tasklist = graph.tasklist(workflow.target_names)
+
+    # Always output status of tasks
+    for t in tasklist:
+        if t in targets_to_schedule:
+            print("Run\t" + t.name)
+        else:
+            print("Skip\t" + t.name)
+
+
+    groups = graph.split_workflow(workflow.target_names)
+
+    # Eventhough two groups can be run simultaneously, they still need to be run as individual jobs.
+
+    xsubIdMap={}
+    xsubSkipped=[]
+
+    runner= PBSRunner(args)
+    
+    def setup_job(g, depIds):
+        ''' Setup and submit job to runner '''
+
+        gwfcommand = 'gwf2 -k '+g.id+'___'+g.pos
+
+        if args.targets:
+            gwfcommand += ' -t '+' '.join(args.targets)
+
+        gwfcommand += ' {workflow_file}'.format(workflow_file=args.workflow_file)
+
+        if args.dryrun:
+            print("--")
+            runner.dryrun(gwfcommand, depIds)
+            xsubIdMap[g] = g.id+'___'+g.pos
+        else:
+            job_id = runner.submit(gwfcommand, depIds)
+
+            shared_dir = os.path.join(GWF_CONFIG_DIR, 'jobs', job_id)
+            if not os.path.exists(shared_dir):
+                os.makedirs(shared_dir)
+
+            with open(os.path.join(shared_dir, 'environment'), 'w') as fp:
+                json.dump({'job_id': job_id}, fp)
+            print job_id
+            xsubIdMap[g] = job_id
+
+
+    while(groups):
+        g = groups.pop(0)
+        if len(g.nodes) > 0:
+            # Check if any task in the group is scheduled to run
+            skip = True
+            for node in g.nodes:
+                if node.task in targets_to_schedule:
+                    skip = False
+                    break
+
+            if skip:
+                # Add group to dependency map
+                xsubSkipped.append(g)
+            else:
+                # Submit the groups in the right order
+                skipped = 0
+                depIds = []
+                for dep in g.dependencies:
+                    if dep in xsubIdMap:
+                        depIds.append(xsubIdMap[dep])
+                    elif dep in xsubSkipped:
+                        skipped += 1
+
+                # Are all dependencies submitted?
+                if len(g.dependencies) == (len(depIds) + skipped):
+                    # All systems set. Go!
+                    setup_job(g, depIds)
+                else:
+                    groups.append(g)
+
+
+else:
+    # args.graph_key is there
+
+    #####################################################################
+    ################## Run execution for graph cluster ##################
+    #####################################################################
+
+    # parse workflow file
+    workflow = parse(os.path.join(os.getcwd(), args.workflow_file))
+
+    # build the dependency graph
+    graph = DependencyGraph(workflow)
+
+    # If all end targets should be run, we have to figure out what those
+    # are and set the target names in the workflow.
+    if args.all:
+        workflow.target_names = frozenset(node.task.name
+                                          for node in graph.end_targets)
+    else:
+        workflow.target_names = args.targets
+        # check if all targets that we wish to run have been defined in the
+        # workflow.
+        for target in workflow.target_names:
+            if target not in workflow.targets:
+                print >> sys.stderr, 'target %s not found in workflow.' % target
+                sys.exit(1)
+
+    # build the dependency graph
+    graph = DependencyGraph(workflow)
+
+    # Retrieve the list of tasks to run
+    all_targets_to_schedule = graph.schedule(workflow.target_names)
+
+    # Split workflow
+    groups = graph.split_workflow(workflow.target_names)
+
+    # Get group
+    group = None
+    g_id, g_pos = args.graph_key.split("___")
+    for g in groups:
+        if g.id == g_id and g.pos == g_pos:
+            group = g
+            break
+
+    if not group:
+        print >> sys.stderr, 'graph key %s not found.' % args.graph_key
+        sys.exit(1)
+
+    schedule_tasks = []
+
+    # Check if any task in the group is scheduled to run
+    for node in group.nodes:
+        if node.task in all_targets_to_schedule:
+            schedule_tasks.append(node.task)
+
+
+
+    # get a suitable environment for this workflow instance.
+    environment = get_environment()
+    logging.debug(environment)
+
+    shared_dir = os.path.join(environment.config_dir, 'jobs', environment.job_id)
+    if not os.path.exists(shared_dir):
+        os.makedirs(shared_dir)
+
+    # initialize file reporter such that it writes the log file to local
+    # storage (scratch) until the reporter is finalized.
+    reporter = FileReporter(tmp_dir=environment.scratch_dir, final_dir=shared_dir)
+    reporter.report(gwf2.reporting.WORKFLOW_QUEUED)
+
+    # Count references
+    graph.update_reference_counts()
+
+    # initialize a scheduler for the workflow and start the run loop.
+    scheduler = TaskScheduler(environment,
+                              reporter,
+                              workflow,
+                              schedule_tasks,
+                              ProcessScheduler())
+    scheduler.run()
