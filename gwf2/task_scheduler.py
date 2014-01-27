@@ -21,6 +21,9 @@ class TaskScheduler(object):
         self.schedule = schedule
         self.scheduler = scheduler
 
+        # Ok, until fault
+        self.errorcode = 0
+
         self.shared_dir = os.path.join(self.environment.config_dir, 'jobs',
                                        self.environment.job_id)
 
@@ -60,6 +63,9 @@ class TaskScheduler(object):
                 sys.exit(1)
 
     def run(self):
+        """
+          Execute tasks and return with errorcode
+        """
         self.scheduler.before += self.on_before_task_started
         self.scheduler.started += self.on_task_started
         self.scheduler.done += self.on_task_done
@@ -67,7 +73,10 @@ class TaskScheduler(object):
 
         # Now, schedule everything that can be scheduled...
         self.schedule_tasks()
+        
         self.scheduler.run()
+        
+        return self.scheduler.errorcode
 
     def schedule_tasks(self):
         '''Schedule all missing tasks.'''
@@ -161,6 +170,8 @@ class TaskScheduler(object):
             expl = 'task {0} stopped with non-zero error code {1}'
             self.reporter.report(reporting.TASK_FAILED,
                                  explanation=expl.format(task.name, errorcode), task=task.name)
+
+            self.scheduler.errorcode = 1
             self.scheduler.stop()
 
         # if this task is the final task, we should copy its output files to
@@ -206,6 +217,8 @@ class TaskScheduler(object):
 
     def on_transfer_failed(self, *args, **kwargs):
         self.reporter.report(reporting.TRANSFER_FAILED, *args, **kwargs)
+
+        self.scheduler.errorcode = 1
         self.scheduler.stop()
 
     def cleanup(self, task):

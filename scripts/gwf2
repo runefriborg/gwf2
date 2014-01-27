@@ -138,8 +138,9 @@ if not args.graph_key and args.local:
                               schedule_tasks,
                               ProcessScheduler())
 
-    scheduler.run()
-
+    # Run scheduler, and return errorcode=0 if all ok, otherwise errorcode=1
+    errorcode = scheduler.run()
+    sys.exit(errorcode)
 
 elif not args.graph_key and not args.local:
     #####################################################################
@@ -328,4 +329,7 @@ else:
                               workflow,
                               schedule_tasks,
                               ProcessScheduler())
-    scheduler.run()
+
+    # Run scheduler, and return errorcode=0 if all ok, otherwise errorcode=1
+    errorcode = scheduler.run()
+    sys.exit(errorcode)
