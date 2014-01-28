@@ -44,7 +44,10 @@ def parse_target(target_code, working_dir):
                 files = line.split()[1:]
                 output.extend(files)
 
-            elif line.startswith(':checkpoint'):
+            elif line.startswith(':dummy'):
+                flags.append('dummy')
+
+            elif line.startswith(':checkpoint') or line.startswith(':save'):
                 flags.append('checkpoint')
 
             elif line.startswith(':xsub'):

@@ -228,6 +228,10 @@ class Task(object):
         self._references = 0
 
     @property
+    def dummy(self):
+        return False
+
+    @property
     def checkpoint(self):
         return False
 
@@ -489,6 +493,10 @@ class Target(ExecutableTask):
                                      source=src,
                                      destination=out_file,
                                      explanation=expl)
+
+    @property
+    def dummy(self):
+        return 'dummy' in self.flags
 
     @property
     def checkpoint(self):

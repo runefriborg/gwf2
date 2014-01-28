@@ -299,7 +299,7 @@ class DependencyGraph(object):
         for root in roots:
             dfs(root)
 
-        section.add('', 'inbetween', current.extract())
+        section.add('', 'main', current.extract())
 
         return section.finalize()
 
@@ -333,14 +333,25 @@ class DependencyGraph(object):
         schedule = []
 
         def dfs(node):
-            if node in processed or not node.task.can_execute:
+            if node in processed:
                 return
 
-            if node.task.checkpoint or node.task.name in end_targets:
-                if files_exist(node.task.output) and is_oldest(node.task):
+            if node.task.dummy:
+                # set dependency nodes to checkpoint to force output to shared disk
+                for _, dep in node.dependencies:
+                    if dep.task.can_execute:
+                        dep.task.set_checkpoint()
+           
+            else:
+                if not node.task.can_execute:
                     return
 
-            schedule.append(node.task)
+                if node.task.checkpoint or node.task.name in end_targets:
+                    if files_exist(node.task.output) and is_oldest(node.task):
+                        return
+
+                schedule.append(node.task)
+
             processed.add(node)
 
             for _, dep in node.dependencies:
