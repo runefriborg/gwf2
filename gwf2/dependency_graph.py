@@ -172,9 +172,18 @@ class DependencyGraph(object):
         return tasks
 
     def split_workflow(self, target_names):
-        '''
-            Splits the workflow into groups and returns SubmitGroups.
-        '''
+        """
+        Arrange the tasks in the workflow into groups of tasks, based on which tasks
+        have the submit flag enabled.
+
+        For each task with a submit flag, devide the set into four groups..
+          * The tasks before the submit task
+          * The tasks after the submit task
+          * The task
+          * The in-between tasks (this is a greedy group)
+
+          The returned structure is a hiarchy of SubmitGroup objects.
+        """
 
         roots = [self.nodes[target_name] for target_name in target_names]
 
@@ -297,15 +306,7 @@ class DependencyGraph(object):
 
     def schedule(self, target_names):
         """
-        Arrange the tasks in the workflow into groups of tasks, based on which tasks
-        have the submit flag enabled.
-
-        For each task with a submit flag, devide the set into four groups..
-          * The tasks before the submit task
-          * The tasks after the submit task
-          * The task
-          * The in-between tasks (this is a greedy group)
-
+        Investigate which targets to schedule
         """
 
         roots = [self.nodes[target_name] for target_name in target_names]
@@ -331,9 +332,7 @@ class DependencyGraph(object):
         processed = set()
         schedule = []
 
-        groups = [[]]
-
-        def dfs(node, g):
+        def dfs(node):
             if node in processed or not node.task.can_execute:
                 return
 
@@ -341,30 +340,14 @@ class DependencyGraph(object):
                 if files_exist(node.task.output) and is_oldest(node.task):
                     return
 
-
-            if node.task.submit:
-                # make two new groups
-                g.append([node.task])
-                g.append(g[0])
-                g[0] = [[]]
-            else:
-                # old group
-                g[0].append(node.task)
-
-
             schedule.append(node.task)
             processed.add(node)
 
             for _, dep in node.dependencies:
-                dfs(dep, g)
+                dfs(dep)
 
         for root in roots:
-            dfs(root, groups)
-
-        #for g in groups:
-        #    print "Group"
-        #    for t in g:
-        #        print "\t" + str(t)
+            dfs(root)
 
         # Put tasks in optimal order
         schedule.reverse()
