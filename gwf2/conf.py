@@ -28,4 +28,4 @@ for val in CHECK.keys():
 
 # Provide function to retrieve configuration value
 def get(val):
-    parser.get('Main', val)
+    return parser.get('Main', val)

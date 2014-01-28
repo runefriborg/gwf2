@@ -15,6 +15,7 @@ GWF_PATH = gwf2.__file__
 
 from gwf2.process import RemoteProcess
 from gwf2.reporting import ReportReader
+from gwf2.runner import Status
 
 from gwf2.colors import red, blue, green, yellow, bold
 
@@ -211,11 +212,15 @@ def get_duration(timeable):
 
 
 def print_list():
+
+    scheduler_job_status = Status()
+
     for job, report in reports(os.path.join(GWF_CONFIG_DIR, 'jobs')):
         # if there is no report, the job has just been queued, but no log file
         # has been written yet.
-        if report is None:
-            print bold(job), get_long_colored_status('Q')
+        if report is None:            
+            if scheduler_job_status.lookup(job):
+                print bold(job), get_long_colored_status('Q')
             continue
 
         logging.debug(report.workflow)

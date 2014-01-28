@@ -1,8 +1,31 @@
 import sys
 import subprocess
-from gwf2.runner import Runner
+import re
+from gwf2.runner import BaseRunner, BaseStatus
 
-class PBSRunner(Runner):
+class PBSStatus(BaseStatus):    
+    def update(self):
+        self.db = {}
+
+        process = subprocess.Popen("qstat", stdout=subprocess.PIPE)
+        qstat_output, _ = process.communicate()
+        
+        _qstat_line_re = re.compile(r'^(?P<jobid>\d+)[^\d]+\s+'
+                                '(?P<jobname>[^\s]+)\s+'
+                                '(?P<username>[^\s]+)\s+'
+                                '(?P<time_used>[^\s]+)\s+'
+                                '(?P<state>[^\s]+)\s+'
+                                '(?P<queue>[^\s]+)')
+        for line in qstat_output.split('\n'):
+            m = _qstat_line_re.match(line)
+            if not m: continue
+            
+            # Got match
+            self.db[m.group('jobid') + '.in'] = [m.group('jobname'), m.group('username'), m.group('time_used'), m.group('state'), m.group('queue')]
+
+
+
+class PBSRunner(BaseRunner):
 
     TEMPLATE_CMD                      = 'qsub {args} {custom}'
     TEMPLATE_ARG_DEPENDENCY_LIST      = '-W depend=afterok:{depend}'

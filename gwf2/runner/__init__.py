@@ -1,6 +1,27 @@
 import os
+import gwf2.conf as conf
 
-class Runner(object):
+
+class BaseStatus(object):
+    def __init__(self):
+        self.db = {}
+        self.update()
+    
+    def update(self):
+        """
+        Update job db
+        """
+        raise Exception("Status.update must be implemented!")
+
+    def lookup(self, jobid):
+        if jobid in self.db:
+            return self.db[jobid]
+        else:
+            return None
+
+        
+
+class BaseRunner(object):
     TEMPLATE_CMD                      = ''
     TEMPLATE_ARG_DEPENDENCY_LIST      = ''
     TEMPLATE_ARG_DEPENDENCY_SEPERATOR = ''
@@ -46,3 +67,13 @@ class Runner(object):
 
         return jobcommand
     
+
+
+config_scheduler = conf.get('scheduler')
+
+if config_scheduler == 'PBS':
+    from gwf2.runner.pbs import PBSRunner as Runner
+    from gwf2.runner.pbs import PBSStatus as Status
+else:
+    raise Exception(config_scheduler)
+

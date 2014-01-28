@@ -15,7 +15,7 @@ from gwf2.task_scheduler import TaskScheduler
 from gwf2.process_scheduler import ProcessScheduler
 from gwf2.reporting import FileReporter
 from gwf2.environment import get_environment
-from gwf2.runner.pbs import PBSRunner
+from gwf2.runner import Runner
 
 GWF_DEFAULT_NODES       = int(os.getenv('GWF_DEFAULT_NODES', '1'))
 GWF_DEFAULT_WALLTIME    = os.getenv('GWF_DEFAULT_WALLTIME', '48:0:0')
@@ -38,8 +38,8 @@ parser.add_argument('-l', '--local', default=False, action='store_true',
 parser.add_argument('workflow_file', help='The .gwf file containing the workflow')
 
 exclgroup = parser.add_mutually_exclusive_group()
-exclgroup.add_argument('-t', '--targets', nargs='+',
-                   help='the target(s) to process.')
+exclgroup.add_argument('-t', '--target', default=None,
+                   help='the target to process.')
 exclgroup.add_argument('-a', '--all', default=False, action='store_true',
                    help='run all end targets in the workflow (default)')
 parser.add_argument('-k', '--graph-key',
@@ -68,8 +68,8 @@ pbsgroup.add_argument('-v', '--dryrun', default=False, action='store_true',
 args = parser.parse_args()
 
 
-# If no targets have been specified, then execute all end targets.
-if not args.targets:
+# If no target have been specified, then execute all end targets.
+if not args.target:
     args.all = True
 
 
@@ -90,8 +90,8 @@ if not args.graph_key and args.local:
         workflow.target_names = frozenset(node.task.name
                                           for node in graph.end_targets)
     else:
-        workflow.target_names = args.targets
-        # check if all targets that we wish to run have been defined in the
+        workflow.target_names = [args.target]
+        # check if the target that we wish to run have been defined in the
         # workflow.
         for target in workflow.target_names:
             if target not in workflow.targets:
@@ -157,7 +157,7 @@ elif not args.graph_key and not args.local:
         workflow.target_names = frozenset(node.task.name
                                       for node in graph.end_targets)
     else:
-        workflow.target_names = args.targets
+        workflow.target_names = [args.target]
         # check if all targets that we wish to run have been defined in the
         # workflow.
         for target in workflow.target_names:
@@ -190,15 +190,15 @@ elif not args.graph_key and not args.local:
     xsubIdMap={}
     xsubSkipped=[]
 
-    runner= PBSRunner(args)
+    runner= Runner(args)
     
     def setup_job(g, depIds):
         ''' Setup and submit job to runner '''
 
         gwfcommand = 'gwf2 -k '+g.id+'___'+g.pos
 
-        if args.targets:
-            gwfcommand += ' -t '+' '.join(args.targets)
+        if args.target:
+            gwfcommand += ' -t '+' '+args.target
 
         gwfcommand += ' {workflow_file}'.format(workflow_file=args.workflow_file)
 
@@ -269,8 +269,8 @@ else:
         workflow.target_names = frozenset(node.task.name
                                           for node in graph.end_targets)
     else:
-        workflow.target_names = args.targets
-        # check if all targets that we wish to run have been defined in the
+        workflow.target_names = [args.target]
+        # check if the target that we wish to run have been defined in the
         # workflow.
         for target in workflow.target_names:
             if target not in workflow.targets:
