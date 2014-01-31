@@ -158,16 +158,14 @@ class DependencyGraph(object):
                 return
 
             processed.add(node)
-            tasks.append(node.task)
 
             for _, dep in node.dependencies:
                 dfs(dep)
 
+            tasks.append(node.task)
+
         for root in roots:
             dfs(root)
-
-        # Put tasks in optimal order
-        tasks.reverse()
 
         return tasks
 
@@ -265,10 +263,7 @@ class DependencyGraph(object):
 
         # Run depth-first traversal
         def dfs(node):
-            if not node.task.can_execute:
-                return
-
-            if node in processed:
+            if node in processed or not node.task.can_execute:
                 return
 
             processed.add(node)
@@ -333,34 +328,28 @@ class DependencyGraph(object):
         schedule = []
 
         def dfs(node):
-            if node in processed:
+            if node in processed or not node.task.can_execute:
                 return
-
-            if node.task.dummy:
-                # set dependency nodes to checkpoint to force output to shared disk
-                for _, dep in node.dependencies:
-                    if dep.task.can_execute:
-                        dep.task.set_checkpoint()
-           
-            else:
-                if not node.task.can_execute:
-                    return
-
-                if node.task.checkpoint or node.task.name in end_targets:
-                    if files_exist(node.task.output) and is_oldest(node.task):
-                        return
-
-                schedule.append(node.task)
 
             processed.add(node)
 
+            # Handle dependencies early
             for _, dep in node.dependencies:
                 dfs(dep)
 
+            # Skip scheduling of dummy task
+            if node.task.dummy:
+                return
+
+            # Schedule task?
+            if node.task.checkpoint or node.task.name in end_targets:
+                if files_exist(node.task.output) and is_oldest(node.task):
+                    return
+
+            schedule.append(node.task)
+
+
         for root in roots:
             dfs(root)
-
-        # Put tasks in optimal order
-        schedule.reverse()
 
         return schedule

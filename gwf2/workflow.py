@@ -44,7 +44,6 @@ def _make_absolute_path(working_dir, fname):
 
 # TEMPLATES
 
-
 class Template(object):
 
     def __init__(self, name, wd, parameters, template):
